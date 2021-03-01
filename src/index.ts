@@ -13,18 +13,28 @@ const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 
 export default class LanguageToolPlugin extends Plugin {
 	private settings: LanguageToolPluginSettings;
+	private openButton: HTMLElement;
+	private handleNextEvent = true;
 	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
 		maxSize: 10,
 	});
 
 	public async onload() {
-		console.log('loading plugin');
 		await this.loadSettings();
+		this.registerDomEvent(document, 'click', e => {
+			if (!this.handleNextEvent) {
+				this.handleNextEvent = true;
+				return;
+			}
+			if (!this.openButton) return;
+			if (e.target === this.openButton) return;
+			this.openButton.remove();
+			this.openButton = undefined;
+		});
 		this.addCommand({
 			id: 'ltcheck-text',
 			name: 'Check Text',
-			checkCallback: (checking) => {
-				console.log('shortcut pressed');
+			checkCallback: checking => {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (checking) return Boolean(view);
 				const cm = view.sourceMode.cmEditor;
@@ -45,7 +55,7 @@ export default class LanguageToolPlugin extends Plugin {
 		const res: LanguageToolApi = await fetch(this.settings.serverUrl, {
 			method: 'POST',
 			body: Object.keys(params)
-				.map((key) => {
+				.map(key => {
 					return `${encodeURIComponent(key)}=${encodeURIComponent(
 						// @ts-expect-error
 						params[key],
@@ -56,7 +66,7 @@ export default class LanguageToolPlugin extends Plugin {
 				'Content-Type': 'application/x-www-form-urlencoded',
 				Accept: 'application/json',
 			},
-		}).then((r) => r.json());
+		}).then(r => r.json());
 		this.hashLru.set(hash, res);
 		return res;
 	}
@@ -64,10 +74,10 @@ export default class LanguageToolPlugin extends Plugin {
 	private async runDetection(editor: CodeMirror.Editor) {
 		const text = editor.getSelection() || editor.getValue();
 		const res = await this.getDetectionResult(text);
-		editor.getAllMarks().forEach((mark) => mark.clear());
+		editor.getAllMarks().forEach(mark => mark.clear());
+
 		for (const match of res.matches) {
 			const line = this.getLine(text, match.offset);
-			console.log(line);
 			const marker = editor.markText(
 				{ ch: line.remaining, line: line.line },
 				{ ch: line.remaining + match.length, line: line.line },
@@ -76,21 +86,21 @@ export default class LanguageToolPlugin extends Plugin {
 					clearOnEnter: false,
 				},
 			);
-			let button: HTMLElement;
+
 			marker.on('beforeCursorEnter', () => {
-				if (button) return;
-				button = document.createElement('button');
-				button.style.zIndex = '99';
+				if (this.openButton) return;
+				this.handleNextEvent = false;
+				this.openButton = document.createElement('button');
+				this.openButton.style.zIndex = '99';
 				if (match.replacements.length > 0) {
-					button.innerText += match.replacements[0].value;
+					this.openButton.innerText += match.replacements[0].value;
 				} else {
-					button.innerText = 'no fix available';
+					this.openButton.innerText = 'no fix available';
 				}
-				button.title = match.message;
-				button.addEventListener('click', () => {
-					button.hide();
-					button.remove();
-					button = undefined;
+				this.openButton.title = match.message;
+				this.openButton.addEventListener('click', () => {
+					this.openButton.remove();
+					this.openButton = undefined;
 					marker.clear();
 					const newLine = this.getLine(text, match.offset);
 					editor.replaceRange(
@@ -102,22 +112,10 @@ export default class LanguageToolPlugin extends Plugin {
 					const offsetOffset = match.replacements[0].value.length - match.length;
 					if (!offsetOffset) return;
 					const toAdjust = res.matches.slice(res.matches.indexOf(match));
-					toAdjust.forEach((v) => (v.offset += offsetOffset));
+					toAdjust.forEach(v => (v.offset += offsetOffset));
 				});
-				let close = false;
-				button.addEventListener('mouseleave', () => {
-					close = true;
-					setTimeout(() => {
-						if (!close || !button) return;
-						button.remove();
-						button = undefined;
-					}, 1000);
-				});
-				button.addEventListener('mouseenter', () => {
-					close = false;
-				});
-				editor.addWidget({ ch: match.offset + match.length - match.length / 2, line: 0 }, button, true);
-				button.focus();
+
+				editor.addWidget({ ch: line.remaining, line: line.line }, this.openButton, true);
 			});
 		}
 	}
