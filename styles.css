@@ -1,0 +1,12 @@
+.lt-minor {
+    text-decoration: underline;
+    text-decoration-color: yellow;
+    text-decoration-thickness: 5;
+}
+
+.lt-major {
+    text-decoration: underline;
+    text-decoration-color: red;
+    text-decoration-thickness: 5;
+    cursor: pointer;
+}
