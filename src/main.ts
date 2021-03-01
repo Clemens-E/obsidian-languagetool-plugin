@@ -1,7 +1,7 @@
 import CodeMirror from 'codemirror';
-import {MarkdownView, Plugin} from 'obsidian';
+import { MarkdownView, Plugin } from 'obsidian';
 import QuickLRU from 'quick-lru';
-import {LanguageToolApi} from './LanguageToolTypings';
+import { LanguageToolApi } from './LanguageToolTypings';
 
 interface LanguageToolPluginSettings {
 	serverUrl: string;
@@ -18,13 +18,11 @@ export default class LanguageToolPlugin extends Plugin {
 	});
 
 	public async onload() {
-		console.log('loading plugin');
 		await this.loadSettings();
 		this.addCommand({
 			id: 'ltcheck-text',
 			name: 'Check Text',
-			checkCallback: (checking) => {
-				console.log('shortcut pressed');
+			checkCallback: checking => {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (checking) return Boolean(view);
 				const cm = view.sourceMode.cmEditor;
@@ -45,7 +43,7 @@ export default class LanguageToolPlugin extends Plugin {
 		const res: LanguageToolApi = await fetch(this.settings.serverUrl, {
 			method: 'POST',
 			body: Object.keys(params)
-				.map((key) => {
+				.map(key => {
 					return `${encodeURIComponent(key)}=${encodeURIComponent(
 						// @ts-expect-error
 						params[key],
@@ -56,7 +54,7 @@ export default class LanguageToolPlugin extends Plugin {
 				'Content-Type': 'application/x-www-form-urlencoded',
 				Accept: 'application/json',
 			},
-		}).then((r) => r.json());
+		}).then(r => r.json());
 		this.hashLru.set(hash, res);
 		return res;
 	}
@@ -64,10 +62,9 @@ export default class LanguageToolPlugin extends Plugin {
 	private async runDetection(editor: CodeMirror.Editor) {
 		const text = editor.getSelection() || editor.getValue();
 		const res = await this.getDetectionResult(text);
-		editor.getAllMarks().forEach((mark) => mark.clear());
+		editor.getAllMarks().forEach(mark => mark.clear());
 		for (const match of res.matches) {
 			const line = this.getLine(text, match.offset);
-			console.log(line);
 			const marker = editor.markText(
 				{ ch: line.remaining, line: line.line },
 				{ ch: line.remaining + match.length, line: line.line },
@@ -102,7 +99,7 @@ export default class LanguageToolPlugin extends Plugin {
 					const offsetOffset = match.replacements[0].value.length - match.length;
 					if (!offsetOffset) return;
 					const toAdjust = res.matches.slice(res.matches.indexOf(match));
-					toAdjust.forEach((v) => (v.offset += offsetOffset));
+					toAdjust.forEach(v => (v.offset += offsetOffset));
 				});
 				let close = false;
 				button.addEventListener('mouseleave', () => {
