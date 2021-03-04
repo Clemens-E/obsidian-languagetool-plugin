@@ -101,18 +101,9 @@ export default class LanguageToolPlugin extends Plugin {
 				this.openButton.addEventListener('click', () => {
 					this.openButton.remove();
 					this.openButton = undefined;
+					const { from, to } = marker.find();
+					editor.replaceRange(match.replacements[0].value, from, to);
 					marker.clear();
-					const newLine = this.getLine(text, match.offset);
-					editor.replaceRange(
-						match.replacements[0].value,
-						{ ch: newLine.remaining, line: newLine.line },
-						{ ch: newLine.remaining + match.length, line: newLine.line },
-					);
-					if (match.replacements.length < 1) return;
-					const offsetOffset = match.replacements[0].value.length - match.length;
-					if (!offsetOffset) return;
-					const toAdjust = res.matches.slice(res.matches.indexOf(match));
-					toAdjust.forEach(v => (v.offset += offsetOffset));
 				});
 
 				editor.addWidget({ ch: line.remaining, line: line.line }, this.openButton, true);
