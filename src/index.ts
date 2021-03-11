@@ -1,7 +1,8 @@
 import CodeMirror from 'codemirror';
-import {MarkdownView, Plugin} from 'obsidian';
+import {MarkdownView, Notice, Plugin} from 'obsidian';
 import QuickLRU from 'quick-lru';
 import {LanguageToolApi} from './LanguageToolTypings';
+import {LanguageToolSettingsTab} from './SettingsTab';
 
 interface LanguageToolPluginSettings {
 	serverUrl: string;
@@ -12,8 +13,9 @@ const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 };
 
 export default class LanguageToolPlugin extends Plugin {
-	private settings: LanguageToolPluginSettings;
-	private openButton: HTMLElement;
+	public settings: LanguageToolPluginSettings;
+	private openDiv: HTMLElement;
+	private readonly statusBarText = this.addStatusBarItem();
 	private handleNextEvent = true;
 	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
 		maxSize: 10,
@@ -21,15 +23,16 @@ export default class LanguageToolPlugin extends Plugin {
 
 	public async onload() {
 		await this.loadSettings();
+		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 		this.registerDomEvent(document, 'click', e => {
 			if (!this.handleNextEvent) {
 				this.handleNextEvent = true;
 				return;
 			}
-			if (!this.openButton) return;
-			if (e.target === this.openButton) return;
-			this.openButton.remove();
-			this.openButton = undefined;
+			if (!this.openDiv) return;
+			if (e.target === this.openDiv) return;
+			this.openDiv.remove();
+			this.openDiv = undefined;
 		});
 		this.addCommand({
 			id: 'ltcheck-text',
@@ -66,18 +69,34 @@ export default class LanguageToolPlugin extends Plugin {
 				'Content-Type': 'application/x-www-form-urlencoded',
 				Accept: 'application/json',
 			},
-		}).then(r => r.json());
+		})
+			.then(r => r.json())
+			.catch(e => {
+				new Notice(`request failed to languagetool  ${e.message}`, 5000);
+				throw e;
+			});
 		this.hashLru.set(hash, res);
 		return res;
 	}
 
 	private async runDetection(editor: CodeMirror.Editor) {
-		const text = editor.getSelection() || editor.getValue();
+		let text: string;
+		const fullText = editor.getValue();
+		let offset = 0;
+		if (editor.somethingSelected()) {
+			text = editor.getSelection();
+			offset = fullText.indexOf(editor.getSelection());
+		} else {
+			text = editor.getValue();
+		}
 		const res = await this.getDetectionResult(text);
 		editor.getAllMarks().forEach(mark => mark.clear());
-
+		this.statusBarText.setText(res.language.name);
 		for (const match of res.matches) {
-			const line = this.getLine(text, match.offset);
+			const bench = [Date.now()];
+			const line = this.getLine(fullText, match.offset + offset);
+			bench.push();
+
 			const marker = editor.markText(
 				{ ch: line.remaining, line: line.line },
 				{ ch: line.remaining + match.length, line: line.line },
@@ -88,25 +107,24 @@ export default class LanguageToolPlugin extends Plugin {
 			);
 
 			marker.on('beforeCursorEnter', () => {
-				if (this.openButton) return;
+				if (this.openDiv) return;
 				this.handleNextEvent = false;
-				this.openButton = document.createElement('button');
-				this.openButton.style.zIndex = '99';
-				if (match.replacements.length > 0) {
-					this.openButton.innerText += match.replacements[0].value;
-				} else {
-					this.openButton.innerText = 'no fix available';
-				}
-				this.openButton.title = match.message;
-				this.openButton.addEventListener('click', () => {
-					this.openButton.remove();
-					this.openButton = undefined;
-					const { from, to } = marker.find();
-					editor.replaceRange(match.replacements[0].value, from, to);
-					marker.clear();
-				});
 
-				editor.addWidget({ ch: line.remaining, line: line.line }, this.openButton, true);
+				const popover = this.getPopOver(
+					{
+						message: match.message,
+						title: match.shortMessage,
+						buttons: match.replacements.slice(0, 3).map(v => v.value),
+					},
+					btn => {
+						this.openDiv = undefined;
+						const { from, to } = marker.find();
+						editor.replaceRange(btn, from, to);
+						marker.clear();
+					},
+				);
+				this.openDiv = popover;
+				editor.addWidget({ ch: line.remaining, line: line.line }, popover, true);
 			});
 		}
 	}
@@ -129,6 +147,38 @@ export default class LanguageToolPlugin extends Plugin {
 
 	public async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	private getPopOver(
+		args: { title: string; message: string; buttons: string[] },
+		cb: (btn: string) => any,
+	): HTMLElement {
+		const rootDiv = document.createElement('div');
+		rootDiv.style.zIndex = '99';
+		rootDiv.classList.add('lt-predictions-container');
+		const titleSpan = document.createElement('span');
+		titleSpan.classList.add('lt-title');
+		titleSpan.innerText = args.title;
+
+		const messageSpan = document.createElement('span');
+		messageSpan.classList.add('lt-message');
+		messageSpan.innerText = args.message;
+
+		rootDiv.appendChild(titleSpan);
+		rootDiv.appendChild(messageSpan);
+		const buttonContainer = document.createElement('div');
+		buttonContainer.classList.add('lt-buttoncontainer');
+		for (const btnText of args.buttons) {
+			const button = document.createElement('button');
+			button.innerText = btnText;
+			button.onclick = () => {
+				cb(btnText);
+				rootDiv.remove();
+			};
+			buttonContainer.appendChild(button);
+		}
+		rootDiv.appendChild(buttonContainer);
+		return rootDiv;
 	}
 }
 
