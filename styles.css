@@ -10,3 +10,37 @@
     text-decoration-thickness: 5;
     cursor: pointer;
 }
+
+.lt-predictions-container {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    text-align: center;
+    border-radius: 6px;
+    background-color: var(--background-preview);
+    font-family: var(--default-font);
+}
+
+.lt-prediction-button {
+    background: none;
+    border: none;
+    font-size: 13px;
+    margin: 0 0 0 0;
+    color: inherit;
+    transition: transform 0.1s ease-out;
+    transform: scale(1.0001);
+    cursor: pointer;
+}
+
+.lt-buttoncontainer {
+    margin: 5px 5px 5px;
+}
+
+.lt-title {
+    display: block;
+    text-decoration: underline;
+}
+
+.lt-message {
+    display: block;
+}
