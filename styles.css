@@ -12,24 +12,21 @@
 }
 
 .lt-predictions-container {
-    margin: 0;
-    padding-left: 0;
-    list-style: none;
-    text-align: center;
-    border-radius: 6px;
-    background-color: var(--background-preview);
-    font-family: var(--default-font);
-}
-
-.lt-prediction-button {
-    background: none;
-    border: none;
-    font-size: 13px;
-    margin: 0 0 0 0;
-    color: inherit;
-    transition: transform 0.1s ease-out;
-    transform: scale(1.0001);
-    cursor: pointer;
+	position: relative;
+	display: grid;
+	grid-gap: 0.2rem;
+	text-align: center;
+	grid-template-columns: 1fr;
+	width: 100%;
+	max-width: 24rem;
+	padding: 1rem;
+	background: hsla(0, 0%, 100%, 0.25);
+	z-index: 1;
+	-webkit-backdrop-filter: blur(12px);
+	backdrop-filter: blur(12px);
+	border-radius: 0.5rem;
+	border: 1px solid hsla(0, 0%, 100%, 0.25);
+	opacity: 1;
 }
 
 .lt-buttoncontainer {
