@@ -12,6 +12,10 @@
 }
 
 .lt-predictions-container {
+	transform-origin:top; 
+	animation-duration: 0.3s;
+	animation-name: lineInserted;
+	transition: height 0.1s;
 	position: relative;
 	display: grid;
 	grid-gap: 0.2rem;
@@ -29,6 +33,10 @@
 	opacity: 1;
 }
 
+.lt-predictions-container button {
+	transition-delay: 0.5s;
+}
+
 .lt-buttoncontainer {
     margin: 5px 5px 5px;
 }
@@ -40,4 +48,13 @@
 
 .lt-message {
     display: block;
+}
+
+@keyframes lineInserted {
+  from {
+    transform:scaleY(0); 
+  }
+  to {
+    transform:scaleY(1); 
+  }
 }
