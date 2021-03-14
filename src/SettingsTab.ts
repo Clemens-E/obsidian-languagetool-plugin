@@ -1,4 +1,4 @@
-import {App, PluginSettingTab, Setting} from 'obsidian';
+import { App, PluginSettingTab, Setting } from 'obsidian';
 import LanguageToolPlugin from '.';
 
 export class LanguageToolSettingsTab extends PluginSettingTab {
