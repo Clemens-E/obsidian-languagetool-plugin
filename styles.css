@@ -1,15 +1,18 @@
 .lt-minor {
     text-decoration: underline;
-    text-decoration-color: yellow;
+    text-decoration-color: #FFFF00;
     text-decoration-thickness: 5;
+	background-color: rgba(255, 255, 0, .15);
 }
 
 .lt-major {
     text-decoration: underline;
-    text-decoration-color: red;
+    text-decoration-color: #FF0000;
     text-decoration-thickness: 5;
     cursor: pointer;
+	background-color: rgba(255, 0, 0, .15);
 }
+
 
 .lt-predictions-container {
 	transform-origin:top; 
