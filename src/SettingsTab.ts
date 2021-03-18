@@ -28,5 +28,14 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+		new Setting(containerEl)
+			.setName('Glass Background')
+			.setDesc('use the secondary background color of the theme or a glass background')
+			.addToggle(async component => {
+				component.setValue(this.plugin.settings.glassBg).onChange(async value => {
+					this.plugin.settings.glassBg = value;
+					await this.plugin.saveSettings();
+				});
+			});
 	}
 }

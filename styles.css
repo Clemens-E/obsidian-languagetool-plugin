@@ -1,47 +1,64 @@
 .lt-minor {
-    text-decoration: underline;
-    text-decoration-color: #FFFF00;
-    text-decoration-thickness: 5;
-	background-color: rgba(255, 255, 0, .15);
+  text-decoration: underline;
+  text-decoration-color: #ff0;
+  text-decoration-thickness: 5;
+  background-color: rgba(255, 255, 0, 0.15);
 }
 
 .lt-major {
-    text-decoration: underline;
-    text-decoration-color: #FF0000;
-    text-decoration-thickness: 5;
-    cursor: pointer;
-	background-color: rgba(255, 0, 0, .15);
+  text-decoration: underline;
+  text-decoration-color: #f00;
+  text-decoration-thickness: 5;
+  cursor: pointer;
+  background-color: rgba(255, 0, 0, 0.15);
 }
 
+.lt-predictions-container-glass {
+  font-family: var(--default-font);
+  transform-origin: top;
+  animation-duration: 0.3s;
+  animation-name: lineInserted;
+  transition: height 0.1s;
+  display: grid;
+  grid-gap: 0.2rem;
+  text-align: center;
+  grid-template-columns: 1fr;
+  max-width: 24rem;
+  padding: 1rem;
+  background: hsla(0, 0%, 100%, 0.25);
+  z-index: 1;
+  backdrop-filter: blur(12px);
+  border-radius: 0.5rem;
+  border: 1px solid hsla(0, 0%, 100%, 0.25);
+  opacity: 1;
+}
 
 .lt-predictions-container {
-	transform-origin:top; 
-	animation-duration: 0.3s;
-	animation-name: lineInserted;
-	transition: height 0.1s;
-	position: relative;
-	display: grid;
-	grid-gap: 0.2rem;
-	text-align: center;
-	grid-template-columns: 1fr;
-	width: 100%;
-	max-width: 24rem;
-	padding: 1rem;
-	background: hsla(0, 0%, 100%, 0.25);
-	z-index: 1;
-	-webkit-backdrop-filter: blur(12px);
-	backdrop-filter: blur(12px);
-	border-radius: 0.5rem;
-	border: 1px solid hsla(0, 0%, 100%, 0.25);
-	opacity: 1;
+  font-family: var(--default-font);
+  background-color: var(--background-secondary, #3b444b);
+  transform-origin: top;
+  animation-duration: 0.3s;
+  animation-name: lineInserted;
+  transition: height 0.1s;
+  display: grid;
+  grid-gap: 0.2rem;
+  text-align: center;
+  grid-template-columns: 1fr;
+  max-width: 24rem;
+  border-radius: 0.5rem;
+  padding: 1rem;
 }
 
-.lt-predictions-container button {
-	transition-delay: 0.5s;
+.lt-predictions-container > button {
+  transition-delay: 0.5s;
 }
 
 .lt-buttoncontainer {
   margin: 5px 5px 5px;
+}
+
+.lt-buttoncontainer > button {
+  margin-bottom: 4px;
 }
 
 .lt-title {
@@ -55,9 +72,10 @@
 
 @keyframes lineInserted {
   from {
-    transform:scaleY(0); 
+    transform: scaleY(0);
   }
+
   to {
-    transform:scaleY(1); 
+    transform: scaleY(1);
   }
 }

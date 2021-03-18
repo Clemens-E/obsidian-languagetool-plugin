@@ -1,16 +1,18 @@
 import CodeMirror from 'codemirror';
-import { MarkdownView, Notice, Plugin } from 'obsidian';
+import {MarkdownView, Notice, Plugin} from 'obsidian';
 import QuickLRU from 'quick-lru';
-import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
-import { LanguageToolSettingsTab } from './SettingsTab';
-import { Widget } from './Widget';
+import {LanguageToolApi, MatchesEntity} from './LanguageToolTypings';
+import {LanguageToolSettingsTab} from './SettingsTab';
+import {Widget} from './Widget';
 
 interface LanguageToolPluginSettings {
 	serverUrl: string;
+	glassBg: boolean;
 }
 
 const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 	serverUrl: 'https://api.languagetool.org/v2/check',
+	glassBg: false,
 };
 
 export default class LanguageToolPlugin extends Plugin {
@@ -105,9 +107,7 @@ export default class LanguageToolPlugin extends Plugin {
 			}
 		>();
 		for (const match of res.matches!) {
-			const bench = [Date.now()];
 			const line = this.getLine(fullText, match.offset + offset);
-			bench.push();
 
 			const marker = editor.markText(
 				{ ch: line.remaining, line: line.line },
@@ -132,11 +132,14 @@ export default class LanguageToolPlugin extends Plugin {
 			this.handleNextEvent = false;
 
 			this.openWidget?.destroy();
-			this.openWidget = new Widget({
-				message: match.message,
-				title: match.shortMessage,
-				buttons: match.replacements!.slice(0, 3).map(v => v.value),
-			}).on('click', text => {
+			this.openWidget = new Widget(
+				{
+					message: match.message,
+					title: match.shortMessage,
+					buttons: match.replacements!.slice(0, 3).map(v => v.value),
+				},
+				this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
+			).on('click', text => {
 				const { from, to } = marker.find();
 				editor.replaceRange(text, from, to);
 				marker.clear();

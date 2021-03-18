@@ -13,11 +13,11 @@ export class Widget extends EventEmitter {
 		return this.elem;
 	}
 
-	public constructor(args: { title: string; message: string; buttons: string[] }) {
+	public constructor(args: { title: string; message: string; buttons: string[] }, classToUse: string) {
 		super();
 		const rootDiv = document.createElement('div');
 		rootDiv.style.zIndex = '99';
-		rootDiv.classList.add('lt-predictions-container');
+		rootDiv.classList.add(classToUse);
 		const titleSpan = document.createElement('span');
 		titleSpan.classList.add('lt-title');
 		titleSpan.innerText = args.title;
