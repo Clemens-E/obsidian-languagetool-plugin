@@ -41,16 +41,16 @@
 }
 
 .lt-buttoncontainer {
-    margin: 5px 5px 5px;
+  margin: 5px 5px 5px;
 }
 
 .lt-title {
-    display: block;
-    text-decoration: underline;
+  display: block;
+  text-decoration: underline;
 }
 
 .lt-message {
-    display: block;
+  display: block;
 }
 
 @keyframes lineInserted {

@@ -1,0 +1,23 @@
+name: Lint
+on: [push, pull_request]
+jobs:
+  lint:
+    name: ESLint/SLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Node v12
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14.x'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run StyleLint
+        run: npm run slint  
