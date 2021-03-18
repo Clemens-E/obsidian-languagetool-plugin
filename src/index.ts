@@ -1,8 +1,9 @@
 import CodeMirror from 'codemirror';
 import {MarkdownView, Notice, Plugin} from 'obsidian';
 import QuickLRU from 'quick-lru';
-import {LanguageToolApi} from './LanguageToolTypings';
+import {LanguageToolApi, MatchesEntity} from './LanguageToolTypings';
 import {LanguageToolSettingsTab} from './SettingsTab';
+import {Widget} from './Widget';
 
 interface LanguageToolPluginSettings {
 	serverUrl: string;
@@ -14,7 +15,7 @@ const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 
 export default class LanguageToolPlugin extends Plugin {
 	public settings: LanguageToolPluginSettings;
-	private openDiv: HTMLElement;
+	private openWidget: Widget | undefined;
 	private readonly statusBarText = this.addStatusBarItem();
 	private handleNextEvent = true;
 	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
@@ -24,15 +25,16 @@ export default class LanguageToolPlugin extends Plugin {
 	public async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
+
 		this.registerDomEvent(document, 'click', e => {
 			if (!this.handleNextEvent) {
 				this.handleNextEvent = true;
 				return;
 			}
-			if (!this.openDiv) return;
-			if (e.target === this.openDiv) return;
-			this.openDiv.remove();
-			this.openDiv = undefined;
+			if (!this.openWidget) return;
+			if (e.target === this.openWidget.element) return;
+			this.openWidget.destroy();
+			this.openWidget = undefined;
 		});
 		this.addCommand({
 			id: 'ltcheck-text',
@@ -40,7 +42,7 @@ export default class LanguageToolPlugin extends Plugin {
 			checkCallback: checking => {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (checking) return Boolean(view);
-				const cm = view.sourceMode.cmEditor;
+				const cm = view!.sourceMode.cmEditor;
 				this.runDetection(cm);
 			},
 		});
@@ -49,7 +51,7 @@ export default class LanguageToolPlugin extends Plugin {
 	private async getDetectionResult(text: string): Promise<LanguageToolApi> {
 		const hash = hashString(text);
 		if (this.hashLru.has(hash)) {
-			return this.hashLru.get(hash);
+			return this.hashLru.get(hash)!;
 		}
 		const params = {
 			text,
@@ -92,7 +94,17 @@ export default class LanguageToolPlugin extends Plugin {
 		const res = await this.getDetectionResult(text);
 		editor.getAllMarks().forEach(mark => mark.clear());
 		this.statusBarText.setText(res.language.name);
-		for (const match of res.matches) {
+		const markerMap = new Map<
+			CodeMirror.TextMarker,
+			{
+				match: MatchesEntity;
+				line: {
+					line: number;
+					remaining: number;
+				};
+			}
+		>();
+		for (const match of res.matches!) {
 			const bench = [Date.now()];
 			const line = this.getLine(fullText, match.offset + offset);
 			bench.push();
@@ -105,28 +117,34 @@ export default class LanguageToolPlugin extends Plugin {
 					clearOnEnter: false,
 				},
 			);
-
-			marker.on('beforeCursorEnter', () => {
-				if (this.openDiv) return;
-				this.handleNextEvent = false;
-
-				const popover = this.getPopOver(
-					{
-						message: match.message,
-						title: match.shortMessage,
-						buttons: match.replacements.slice(0, 3).map(v => v.value),
-					},
-					btn => {
-						this.openDiv = undefined;
-						const { from, to } = marker.find();
-						editor.replaceRange(btn, from, to);
-						marker.clear();
-					},
-				);
-				this.openDiv = popover;
-				editor.addWidget({ ch: line.remaining, line: line.line }, popover, true);
-			});
+			markerMap.set(marker, { match, line });
 		}
+
+		editor.getWrapperElement().addEventListener('mousedown', e => {
+			const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
+			const markers = editor.findMarksAt(lineCh);
+			if (markers.length < 1) return;
+			// assume there is only a single marker
+			const [marker] = markers;
+			const entry = markerMap.get(marker);
+			if (!entry) return;
+			const { line, match } = entry;
+			this.handleNextEvent = false;
+
+			this.openWidget?.destroy();
+			this.openWidget = new Widget({
+				message: match.message,
+				title: match.shortMessage,
+				buttons: match.replacements!.slice(0, 3).map(v => v.value),
+			}).on('click', text => {
+				const { from, to } = marker.find();
+				editor.replaceRange(text, from, to);
+				marker.clear();
+				this.openWidget?.destroy();
+				this.openWidget = undefined;
+			});
+			editor.addWidget({ ch: line.remaining, line: line.line }, this.openWidget.element, true);
+		});
 	}
 
 	private getLine(text: string, offset: number): { line: number; remaining: number } {
@@ -147,38 +165,6 @@ export default class LanguageToolPlugin extends Plugin {
 
 	public async saveSettings() {
 		await this.saveData(this.settings);
-	}
-
-	private getPopOver(
-		args: { title: string; message: string; buttons: string[] },
-		cb: (btn: string) => any,
-	): HTMLElement {
-		const rootDiv = document.createElement('div');
-		rootDiv.style.zIndex = '99';
-		rootDiv.classList.add('lt-predictions-container');
-		const titleSpan = document.createElement('span');
-		titleSpan.classList.add('lt-title');
-		titleSpan.innerText = args.title;
-
-		const messageSpan = document.createElement('span');
-		messageSpan.classList.add('lt-message');
-		messageSpan.innerText = args.message;
-
-		rootDiv.appendChild(titleSpan);
-		rootDiv.appendChild(messageSpan);
-		const buttonContainer = document.createElement('div');
-		buttonContainer.classList.add('lt-buttoncontainer');
-		for (const btnText of args.buttons) {
-			const button = document.createElement('button');
-			button.innerText = btnText;
-			button.onclick = () => {
-				cb(btnText);
-				rootDiv.remove();
-			};
-			buttonContainer.appendChild(button);
-		}
-		rootDiv.appendChild(buttonContainer);
-		return rootDiv;
 	}
 }
 

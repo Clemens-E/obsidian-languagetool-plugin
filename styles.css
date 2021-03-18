@@ -1,46 +1,47 @@
 .lt-minor {
-    text-decoration: underline;
-    text-decoration-color: yellow;
-    text-decoration-thickness: 5;
+  text-decoration: underline;
+  text-decoration-color: yellow;
+  text-decoration-thickness: 5;
 }
 
 .lt-major {
-    text-decoration: underline;
-    text-decoration-color: red;
-    text-decoration-thickness: 5;
-    cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: red;
+  text-decoration-thickness: 5;
+  cursor: pointer;
 }
 
 .lt-predictions-container {
-    margin: 0;
-    padding-left: 0;
-    list-style: none;
-    text-align: center;
-    border-radius: 6px;
-    background-color: var(--background-preview);
-    font-family: var(--default-font);
+  position: fixed;
+  margin: 0;
+  padding: 14px;
+  list-style: none;
+  text-align: center;
+  border-radius: 6px;
+  background-color: var(--background-secondary, #3b444b);
+  font-family: var(--default-font);
 }
 
 .lt-prediction-button {
-    background: none;
-    border: none;
-    font-size: 13px;
-    margin: 0 0 0 0;
-    color: inherit;
-    transition: transform 0.1s ease-out;
-    transform: scale(1.0001);
-    cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 13px;
+  margin: 0 0 0 0;
+  color: inherit;
+  transition: transform 0.1s ease-out;
+  transform: scale(1.0001);
+  cursor: pointer;
 }
 
 .lt-buttoncontainer {
-    margin: 5px 5px 5px;
+  margin: 5px 5px 5px;
 }
 
 .lt-title {
-    display: block;
-    text-decoration: underline;
+  display: block;
+  text-decoration: underline;
 }
 
 .lt-message {
-    display: block;
+  display: block;
 }
