@@ -1,9 +1,9 @@
 import CodeMirror from 'codemirror';
-import {MarkdownView, Notice, Plugin} from 'obsidian';
+import { MarkdownView, Notice, Plugin } from 'obsidian';
 import QuickLRU from 'quick-lru';
-import {LanguageToolApi, MatchesEntity} from './LanguageToolTypings';
-import {LanguageToolSettingsTab} from './SettingsTab';
-import {Widget} from './Widget';
+import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
+import { LanguageToolSettingsTab } from './SettingsTab';
+import { Widget } from './Widget';
 
 interface LanguageToolPluginSettings {
 	serverUrl: string;
