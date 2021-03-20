@@ -1,10 +1,10 @@
+import * as Remark from 'annotatedtext-remark';
 import CodeMirror from 'codemirror';
 import { MarkdownView, Notice, Plugin } from 'obsidian';
 import QuickLRU from 'quick-lru';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
-
 interface LanguageToolPluginSettings {
 	serverUrl: string;
 	glassBg: boolean;
@@ -56,7 +56,7 @@ export default class LanguageToolPlugin extends Plugin {
 			return this.hashLru.get(hash)!;
 		}
 		const params = {
-			text,
+			data: text,
 			language: 'auto',
 		};
 		const res: LanguageToolApi = await fetch(this.settings.serverUrl, {
@@ -93,7 +93,10 @@ export default class LanguageToolPlugin extends Plugin {
 		} else {
 			text = editor.getValue();
 		}
-		const res = await this.getDetectionResult(text);
+
+		const parsedText = Remark.build(text, Remark.defaults);
+		const res = await this.getDetectionResult(JSON.stringify(parsedText));
+
 		editor.getAllMarks().forEach(mark => mark.clear());
 		this.statusBarText.setText(res.language.name);
 		const markerMap = new Map<
