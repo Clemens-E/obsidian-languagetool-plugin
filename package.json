@@ -13,8 +13,11 @@
         "prettier": "prettier --write --use-tabs --single-quote --print-width 120 --trailing-comma all --end-of-line lf"
     },
     "keywords": [],
-    "author": "",
-    "license": "UNLICENSED",
+    "author": "Clemens Ertle",
+    "repository": {
+        "url": "https://github.com/Clemens-E/obsidian-languagetool-plugin"
+    },
+    "license": "MIT",
     "devDependencies": {
         "@rollup/plugin-commonjs": "^17.1.0",
         "@rollup/plugin-json": "^4.1.0",

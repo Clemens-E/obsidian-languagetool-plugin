@@ -1,9 +1,9 @@
 {
 	"id": "obsidian-languagetool-plugin",
 	"name": "LanguageTool Integration",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"minAppVersion": "0.9.12",
-	"description": "This plugin does spell/grammar check with the help of language-tool (WIP)",
+	"description": "This plugin does spell/grammar checks with the help of language-tool",
 	"author": "Clemens Ertle",
 	"authorUrl": "https://github.com/Clemens-E",
 	"isDesktopOnly": false
