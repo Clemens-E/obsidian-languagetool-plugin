@@ -19,7 +19,34 @@ export default class LanguageToolPlugin extends Plugin {
 	public settings: LanguageToolPluginSettings;
 	private openWidget: Widget | undefined;
 	private readonly statusBarText = this.addStatusBarItem();
-	private handleNextEvent = true;
+	private readonly markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
+	private readonly mouseDownHandler = (editor: CodeMirror.Editor, event: MouseEvent) => {
+		const lineCh = editor.coordsChar({ left: event.clientX, top: event.clientY });
+		const markers = editor.findMarksAt(lineCh);
+		if (markers.length < 1) return;
+		// assume there is only a single marker
+		const [marker] = markers;
+		const match = this.markerMap.get(marker);
+		if (!match) return;
+
+		this.openWidget?.destroy();
+		this.openWidget = new Widget(
+			{
+				message: match.message,
+				title: match.shortMessage,
+				buttons: match.replacements!.slice(0, 3).map(v => v.value),
+			},
+			this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
+		).on('click', text => {
+			const { from, to } = marker.find();
+			editor.replaceRange(text, from, to);
+			marker.clear();
+			this.openWidget?.destroy();
+			this.openWidget = undefined;
+		});
+		editor.addWidget(marker.find().from, this.openWidget.element, true);
+	};
+
 	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
 		maxSize: 10,
 	});
@@ -29,12 +56,39 @@ export default class LanguageToolPlugin extends Plugin {
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
 		this.registerDomEvent(document, 'click', e => {
-			if (!this.handleNextEvent) {
-				this.handleNextEvent = true;
+			if (!this.openWidget) {
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				const editor = view!.sourceMode.cmEditor;
+				const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
+				const markers = editor.findMarksAt(lineCh);
+				if (markers.length < 1) return;
+				// assume there is only a single marker
+				const [marker] = markers;
+				const match = this.markerMap.get(marker);
+				if (!match) return;
+
+				this.openWidget = new Widget(
+					{
+						message: match.message,
+						title: match.shortMessage,
+						buttons: match.replacements!.slice(0, 3).map(v => v.value),
+					},
+					this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
+				).on('click', text => {
+					const { from, to } = marker.find();
+					editor.replaceRange(text, from, to);
+					marker.clear();
+					this.openWidget?.destroy();
+					this.openWidget = undefined;
+				});
+				editor.addWidget(lineCh, this.openWidget.element, true);
 				return;
 			}
-			if (!this.openWidget) return;
-			if (e.target === this.openWidget.element) return;
+			if (
+				e.target === this.openWidget.element ||
+				Array.from(this.openWidget.element.childNodes).some(elem => e.target === elem)
+			)
+				return;
 			this.openWidget.destroy();
 			this.openWidget = undefined;
 		});
@@ -59,7 +113,7 @@ export default class LanguageToolPlugin extends Plugin {
 			data: text,
 			language: 'auto',
 		};
-		const res: LanguageToolApi = await fetch(this.settings.serverUrl, {
+		const res = await fetch(this.settings.serverUrl, {
 			method: 'POST',
 			body: Object.keys(params)
 				.map(key => {
@@ -73,14 +127,14 @@ export default class LanguageToolPlugin extends Plugin {
 				'Content-Type': 'application/x-www-form-urlencoded',
 				Accept: 'application/json',
 			},
-		})
-			.then(r => r.json())
-			.catch(e => {
-				new Notice(`request failed to languagetool  ${e.message}`, 5000);
-				throw e;
-			});
-		this.hashLru.set(hash, res);
-		return res;
+		});
+		if (!res.ok) {
+			new Notice(`request to languagetool failed\n${res.statusText}`, 5000);
+			throw new Error(`unexpected status ${res.status}, see network tab`);
+		}
+		const body: LanguageToolApi = await res.json();
+		this.hashLru.set(hash, body);
+		return body;
 	}
 
 	private async runDetection(editor: CodeMirror.Editor) {
@@ -98,17 +152,8 @@ export default class LanguageToolPlugin extends Plugin {
 		const res = await this.getDetectionResult(JSON.stringify(parsedText));
 
 		editor.getAllMarks().forEach(mark => mark.clear());
+		this.markerMap.clear();
 		this.statusBarText.setText(res.language.name);
-		const markerMap = new Map<
-			CodeMirror.TextMarker,
-			{
-				match: MatchesEntity;
-				line: {
-					line: number;
-					remaining: number;
-				};
-			}
-		>();
 		for (const match of res.matches!) {
 			const line = this.getLine(fullText, match.offset + offset);
 
@@ -120,37 +165,8 @@ export default class LanguageToolPlugin extends Plugin {
 					clearOnEnter: false,
 				},
 			);
-			markerMap.set(marker, { match, line });
+			this.markerMap.set(marker, match);
 		}
-
-		editor.getWrapperElement().addEventListener('mousedown', e => {
-			const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
-			const markers = editor.findMarksAt(lineCh);
-			if (markers.length < 1) return;
-			// assume there is only a single marker
-			const [marker] = markers;
-			const entry = markerMap.get(marker);
-			if (!entry) return;
-			const { line, match } = entry;
-			this.handleNextEvent = false;
-
-			this.openWidget?.destroy();
-			this.openWidget = new Widget(
-				{
-					message: match.message,
-					title: match.shortMessage,
-					buttons: match.replacements!.slice(0, 3).map(v => v.value),
-				},
-				this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
-			).on('click', text => {
-				const { from, to } = marker.find();
-				editor.replaceRange(text, from, to);
-				marker.clear();
-				this.openWidget?.destroy();
-				this.openWidget = undefined;
-			});
-			editor.addWidget({ ch: line.remaining, line: line.line }, this.openWidget.element, true);
-		});
 	}
 
 	private getLine(text: string, offset: number): { line: number; remaining: number } {
