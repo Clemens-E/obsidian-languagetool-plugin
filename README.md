@@ -29,4 +29,4 @@ This Plugin is still very young with not too much time spent on it, so there are
 
 # Demo
 
-![](/demos/demo1.png)
+![demo](/demos/Demo1.png)
