@@ -20,32 +20,6 @@ export default class LanguageToolPlugin extends Plugin {
 	private openWidget: Widget | undefined;
 	private readonly statusBarText = this.addStatusBarItem();
 	private readonly markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
-	private readonly mouseDownHandler = (editor: CodeMirror.Editor, event: MouseEvent) => {
-		const lineCh = editor.coordsChar({ left: event.clientX, top: event.clientY });
-		const markers = editor.findMarksAt(lineCh);
-		if (markers.length < 1) return;
-		// assume there is only a single marker
-		const [marker] = markers;
-		const match = this.markerMap.get(marker);
-		if (!match) return;
-
-		this.openWidget?.destroy();
-		this.openWidget = new Widget(
-			{
-				message: match.message,
-				title: match.shortMessage,
-				buttons: match.replacements!.slice(0, 3).map(v => v.value),
-			},
-			this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
-		).on('click', text => {
-			const { from, to } = marker.find();
-			editor.replaceRange(text, from, to);
-			marker.clear();
-			this.openWidget?.destroy();
-			this.openWidget = undefined;
-		});
-		editor.addWidget(marker.find().from, this.openWidget.element, true);
-	};
 
 	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
 		maxSize: 10,
@@ -58,7 +32,12 @@ export default class LanguageToolPlugin extends Plugin {
 		this.registerDomEvent(document, 'click', e => {
 			if (!this.openWidget) {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				const editor = view!.sourceMode.cmEditor;
+				if (!view) return;
+				const editor = view.sourceMode.cmEditor;
+
+				// return if element is not in the editor
+				if (!editor.getWrapperElement().contains(e.target as ChildNode)) return;
+
 				const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
 				const markers = editor.findMarksAt(lineCh);
 				if (markers.length < 1) return;
@@ -84,11 +63,8 @@ export default class LanguageToolPlugin extends Plugin {
 				editor.addWidget(lineCh, this.openWidget.element, true);
 				return;
 			}
-			if (
-				e.target === this.openWidget.element ||
-				Array.from(this.openWidget.element.childNodes).some(elem => e.target === elem)
-			)
-				return;
+			if (e.target === this.openWidget.element || this.openWidget.element.contains(e.target as ChildNode)) return;
+
 			this.openWidget.destroy();
 			this.openWidget = undefined;
 		});
@@ -98,6 +74,7 @@ export default class LanguageToolPlugin extends Plugin {
 			checkCallback: checking => {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (checking) return Boolean(view);
+				if (!view) return;
 				const cm = view!.sourceMode.cmEditor;
 				this.runDetection(cm);
 			},
