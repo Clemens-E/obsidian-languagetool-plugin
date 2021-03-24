@@ -14,10 +14,10 @@ jobs:
           node-version: '14.x'
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn
 
       - name: Run ESLint
-        run: npm run lint
+        run: yarn run lint
 
       - name: Run StyleLint
-        run: npm run slint  
+        run: yarn run slint  
