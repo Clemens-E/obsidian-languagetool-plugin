@@ -3,17 +3,8 @@ import CodeMirror from 'codemirror';
 import { MarkdownView, Notice, Plugin } from 'obsidian';
 import QuickLRU from 'quick-lru';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
-import { LanguageToolSettingsTab } from './SettingsTab';
+import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
-interface LanguageToolPluginSettings {
-	serverUrl: string;
-	glassBg: boolean;
-}
-
-const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
-	serverUrl: 'https://api.languagetool.org/v2/check',
-	glassBg: false,
-};
 
 export default class LanguageToolPlugin extends Plugin {
 	public settings: LanguageToolPluginSettings;
@@ -76,6 +67,7 @@ export default class LanguageToolPlugin extends Plugin {
 				if (checking) return Boolean(view);
 				if (!view) return;
 				const cm = view!.sourceMode.cmEditor;
+				// eslint-disable-next-line @typescript-eslint/no-floating-promises
 				this.runDetection(cm);
 			},
 		});
@@ -86,18 +78,31 @@ export default class LanguageToolPlugin extends Plugin {
 		if (this.hashLru.has(hash)) {
 			return this.hashLru.get(hash)!;
 		}
-		const params = {
+		const params: { [key: string]: string } = {
 			data: text,
 			language: 'auto',
 		};
+		if (
+			this.settings.apikey &&
+			this.settings.username &&
+			this.settings.apikey.length > 1 &&
+			this.settings.username.length > 1
+		) {
+			params.username = this.settings.username;
+			params.apiKey = this.settings.apikey;
+		}
+		if (
+			this.settings.staticLanguage &&
+			this.settings.staticLanguage.length > 0 &&
+			this.settings.staticLanguage !== 'auto'
+		) {
+			params.language = this.settings.staticLanguage;
+		}
 		const res = await fetch(this.settings.serverUrl, {
 			method: 'POST',
 			body: Object.keys(params)
 				.map(key => {
-					return `${encodeURIComponent(key)}=${encodeURIComponent(
-						// @ts-expect-error
-						params[key],
-					)}`;
+					return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
 				})
 				.join('&'),
 			headers: {
@@ -106,7 +111,7 @@ export default class LanguageToolPlugin extends Plugin {
 			},
 		});
 		if (!res.ok) {
-			new Notice(`request to languagetool failed\n${res.statusText}`, 5000);
+			new Notice(`request to LanguageTool failed\n${res.statusText}`, 5000);
 			throw new Error(`unexpected status ${res.status}, see network tab`);
 		}
 		const body: LanguageToolApi = await res.json();
@@ -127,7 +132,6 @@ export default class LanguageToolPlugin extends Plugin {
 
 		const parsedText = Remark.build(text, Remark.defaults);
 		const res = await this.getDetectionResult(JSON.stringify(parsedText));
-
 		editor.getAllMarks().forEach(mark => mark.clear());
 		this.markerMap.clear();
 		this.statusBarText.setText(res.language.name);
