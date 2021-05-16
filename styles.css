@@ -1,16 +1,30 @@
+.lt-underline {
+  cursor: pointer;
+  transition: background-color 100ms ease-out;
+}
+
 .lt-minor {
-  text-decoration: underline;
-  text-decoration-color: #ff0;
-  text-decoration-thickness: 5;
-  background-color: rgba(255, 255, 0, 0.15);
+  box-shadow: inset 0 -2px #e9b35f;
 }
 
 .lt-major {
-  text-decoration: underline;
-  text-decoration-color: #f00;
-  text-decoration-thickness: 5;
-  cursor: pointer;
-  background-color: rgba(255, 0, 0, 0.15);
+  box-shadow: inset 0 -2px #da615c;
+}
+
+.lt-style {
+  box-shadow: inset 0 -2px #8981f3;
+}
+
+.lt-minor:hover {
+  background-color: #e9b35f21;
+}
+
+.lt-major:hover {
+  background-color: #da615c21;
+}
+
+.lt-style:hover {
+  background-color: #8981f321;
 }
 
 .lt-predictions-container-glass {
@@ -26,7 +40,6 @@
   max-width: 24rem;
   padding: 1rem;
   background: hsla(0, 0%, 100%, 0.25);
-  z-index: 1;
   backdrop-filter: blur(12px);
   border-radius: 0.5rem;
   border: 1px solid hsla(0, 0%, 100%, 0.25);
