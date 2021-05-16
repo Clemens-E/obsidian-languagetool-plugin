@@ -68,6 +68,7 @@ export default class LanguageToolPlugin extends Plugin {
 					message: match.message,
 					title: match.shortMessage,
 					buttons: match.replacements!.slice(0, 3).map(v => v.value),
+					category: match.rule.category.id,
 				},
 				this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
 			).on('click', text => {
@@ -208,7 +209,7 @@ export default class LanguageToolPlugin extends Plugin {
 				{ ch: line.remaining, line: line.line },
 				{ ch: line.remaining + match.length, line: line.line },
 				{
-					className: getIssueTypeClassName(match.rule.category.id),
+					className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
 					clearOnEnter: false,
 				},
 			);

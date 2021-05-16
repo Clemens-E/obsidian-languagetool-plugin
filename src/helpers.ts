@@ -6,13 +6,13 @@ export function getIssueTypeClassName(categoryId: string) {
 		case 'COLLOQUIALISMS':
 		case 'REDUNDANCY':
 		case 'STYLE':
-			return 'lt-underline lt-style';
+			return 'lt-style';
 		case 'PUNCTUATION':
 		case 'TYPOS':
-			return 'lt-underline lt-major';
+			return 'lt-major';
 	}
 
-	return 'lt-underline lt-minor';
+	return 'lt-minor';
 }
 
 // Construct a list of enabled / disabled rules

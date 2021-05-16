@@ -3,27 +3,27 @@
   transition: background-color 100ms ease-out;
 }
 
-.lt-minor {
+.lt-underline.lt-minor {
   box-shadow: inset 0 -2px #e9b35f;
 }
 
-.lt-major {
+.lt-underline.lt-major {
   box-shadow: inset 0 -2px #da615c;
 }
 
-.lt-style {
+.lt-underline.lt-style {
   box-shadow: inset 0 -2px #8981f3;
 }
 
-.lt-minor:hover {
+.lt-underline.lt-minor:hover {
   background-color: #e9b35f21;
 }
 
-.lt-major:hover {
+.lt-underline.lt-major:hover {
   background-color: #da615c21;
 }
 
-.lt-style:hover {
+.lt-underline.lt-style:hover {
   background-color: #8981f321;
 }
 

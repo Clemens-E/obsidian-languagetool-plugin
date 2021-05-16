@@ -1,4 +1,5 @@
 import EventEmitter from 'events';
+import { getIssueTypeClassName } from './helpers';
 
 export declare interface Widget {
 	on(event: 'click', listener: (name: string) => any): this;
@@ -13,11 +14,14 @@ export class Widget extends EventEmitter {
 		return this.elem;
 	}
 
-	public constructor(args: { title: string; message: string; buttons: string[] }, classToUse: string) {
+	public constructor(
+		args: { title: string; message: string; buttons: string[]; category: string },
+		classToUse: string,
+	) {
 		super();
 		const rootDiv = document.createElement('div');
 		rootDiv.style.zIndex = '99';
-		rootDiv.classList.add(classToUse);
+		rootDiv.classList.add(classToUse, getIssueTypeClassName(args.category));
 		const titleSpan = document.createElement('span');
 		titleSpan.classList.add('lt-title');
 		titleSpan.innerText = args.title;
