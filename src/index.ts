@@ -118,7 +118,6 @@ export default class LanguageToolPlugin extends Plugin {
 		const params: { [key: string]: string } = {
 			data: text,
 			language: 'auto',
-			enabledOnly: 'true',
 			level: this.settings.pickyMode ? 'picky' : 'default',
 		};
 
