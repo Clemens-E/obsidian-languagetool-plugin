@@ -17,6 +17,13 @@ export default class LanguageToolPlugin extends Plugin {
 		maxSize: 10,
 	});
 
+	public onunload() {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view || this.markerMap.size === 0) return;
+		const cm = view.sourceMode.cmEditor;
+		this.clearMarks(cm);
+	}
+
 	public async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
