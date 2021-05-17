@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import LanguageToolPlugin from '.';
 
 export interface LanguageToolPluginSettings {
@@ -81,22 +81,29 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Endpoint')
 			.setDesc('endpoint that will be used to make requests to')
-			.addText(text =>
-				text
-					.setPlaceholder('Enter endpoint')
-					.setValue(this.plugin.settings.serverUrl)
-					.onChange(async value => {
-						this.plugin.settings.serverUrl = value.replace(/\/v2\/check\/$/, '').replace(/\/$/, '');
-						await this.plugin.saveSettings();
-					}),
-			)
-			.addExtraButton(button => {
-				button
-					.setIcon('reset')
-					.setTooltip('Reset to default')
-					.onClick(async () => {
-						this.plugin.settings.serverUrl = DEFAULT_SETTINGS.serverUrl;
-						await this.plugin.saveSettings();
+			.then(setting => {
+				let input: TextComponent | null = null;
+
+				setting
+					.addText(text => {
+						input = text;
+						text
+							.setPlaceholder('Enter endpoint')
+							.setValue(this.plugin.settings.serverUrl)
+							.onChange(async value => {
+								this.plugin.settings.serverUrl = value.replace(/\/v2\/check\/$/, '').replace(/\/$/, '');
+								await this.plugin.saveSettings();
+							});
+					})
+					.addExtraButton(button => {
+						button
+							.setIcon('reset')
+							.setTooltip('Reset to default')
+							.onClick(async () => {
+								this.plugin.settings.serverUrl = DEFAULT_SETTINGS.serverUrl;
+								input?.setValue(DEFAULT_SETTINGS.serverUrl);
+								await this.plugin.saveSettings();
+							});
 					});
 			});
 		new Setting(containerEl)
