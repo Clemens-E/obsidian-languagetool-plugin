@@ -2,6 +2,7 @@ import * as Remark from 'annotatedtext-remark';
 import CodeMirror from 'codemirror';
 import { MarkdownView, Notice, Plugin } from 'obsidian';
 import QuickLRU from 'quick-lru';
+import { getIssueTypeClassName, getRuleCategories } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
@@ -16,49 +17,70 @@ export default class LanguageToolPlugin extends Plugin {
 		maxSize: 10,
 	});
 
+	public onunload() {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view || this.markerMap.size === 0) return;
+		const cm = view.sourceMode.cmEditor;
+		this.clearMarks(cm);
+	}
+
 	public async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
-		this.registerDomEvent(document, 'click', e => {
-			if (!this.openWidget) {
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (!view) return;
-				const editor = view.sourceMode.cmEditor;
+		// Using the click event won't trigger the widget consistently, so use pointerup instead
+		this.registerDomEvent(document, 'pointerup', e => {
+			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (!view) return;
 
-				// return if element is not in the editor
-				if (!editor.getWrapperElement().contains(e.target as ChildNode)) return;
-
-				const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
-				const markers = editor.findMarksAt(lineCh);
-				if (markers.length < 1) return;
-				// assume there is only a single marker
-				const [marker] = markers;
-				const match = this.markerMap.get(marker);
-				if (!match) return;
-
-				this.openWidget = new Widget(
-					{
-						message: match.message,
-						title: match.shortMessage,
-						buttons: match.replacements!.slice(0, 3).map(v => v.value),
-					},
-					this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
-				).on('click', text => {
-					const { from, to } = marker.find();
-					editor.replaceRange(text, from, to);
-					marker.clear();
-					this.openWidget?.destroy();
-					this.openWidget = undefined;
-				});
-				editor.addWidget(lineCh, this.openWidget.element, true);
+			if (e.target === this.openWidget?.element || this.openWidget?.element.contains(e.target as ChildNode)) {
 				return;
 			}
-			if (e.target === this.openWidget.element || this.openWidget.element.contains(e.target as ChildNode)) return;
 
-			this.openWidget.destroy();
-			this.openWidget = undefined;
+			// Destroy any open widgets if we're not clicking in one
+			if (this.openWidget) {
+				this.openWidget.destroy();
+				this.openWidget = undefined;
+			}
+
+			// Don't open if we have no marks or aren't clicking on a mark
+			if (this.markerMap.size === 0 || (e.target instanceof HTMLElement && !e.target.hasClass('lt-underline'))) {
+				return;
+			}
+
+			const editor = view.sourceMode.cmEditor;
+
+			// return if element is not in the editor
+			if (!editor.getWrapperElement().contains(e.target as ChildNode)) return;
+
+			const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
+			const markers = editor.findMarksAt(lineCh);
+
+			if (markers.length === 0) return;
+
+			// assume there is only a single marker
+			const marker = markers[0];
+			const match = this.markerMap.get(marker);
+			if (!match) return;
+
+			this.openWidget = new Widget(
+				{
+					message: match.message,
+					title: match.shortMessage,
+					buttons: match.replacements!.slice(0, 3).map(v => v.value),
+					category: match.rule.category.id,
+				},
+				this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
+			).on('click', text => {
+				const { from, to } = marker.find() as CodeMirror.MarkerRange;
+				editor.replaceRange(text, from, to);
+				marker.clear();
+				this.openWidget?.destroy();
+				this.openWidget = undefined;
+			});
+			editor.addWidget(lineCh, this.openWidget.element, true);
 		});
+
 		this.addCommand({
 			id: 'ltcheck-text',
 			name: 'Check Text',
@@ -71,6 +93,19 @@ export default class LanguageToolPlugin extends Plugin {
 				this.runDetection(cm);
 			},
 		});
+
+		this.addCommand({
+			id: 'ltclear',
+			name: 'Clear Suggestions',
+			checkCallback: checking => {
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (checking) return Boolean(view) || this.markerMap.size > 0;
+				if (!view) return;
+				const cm = view!.sourceMode.cmEditor;
+				// eslint-disable-next-line @typescript-eslint/no-floating-promises
+				this.clearMarks(cm);
+			},
+		});
 	}
 
 	private async getDetectionResult(text: string): Promise<LanguageToolApi> {
@@ -78,10 +113,32 @@ export default class LanguageToolPlugin extends Plugin {
 		if (this.hashLru.has(hash)) {
 			return this.hashLru.get(hash)!;
 		}
+
+		const { enabledCategories, disabledCategories } = getRuleCategories(this.settings);
+
 		const params: { [key: string]: string } = {
 			data: text,
 			language: 'auto',
+			enabledOnly: 'true',
+			level: this.settings.pickyMode ? 'picky' : 'default',
 		};
+
+		if (enabledCategories.length) {
+			params.enabledCategories = enabledCategories.join(',');
+		}
+
+		if (disabledCategories.length) {
+			params.disabledCategories = disabledCategories.join(',');
+		}
+
+		if (this.settings.ruleOtherRules) {
+			params.enabledRules = this.settings.ruleOtherRules;
+		}
+
+		if (this.settings.ruleOtherDisabledRules) {
+			params.disabledRules = this.settings.ruleOtherDisabledRules;
+		}
+
 		if (
 			this.settings.apikey &&
 			this.settings.username &&
@@ -98,7 +155,8 @@ export default class LanguageToolPlugin extends Plugin {
 		) {
 			params.language = this.settings.staticLanguage;
 		}
-		const res = await fetch(this.settings.serverUrl, {
+
+		const res = await fetch(`${this.settings.serverUrl}/v2/check`, {
 			method: 'POST',
 			body: Object.keys(params)
 				.map(key => {
@@ -110,13 +168,21 @@ export default class LanguageToolPlugin extends Plugin {
 				Accept: 'application/json',
 			},
 		});
+
 		if (!res.ok) {
 			new Notice(`request to LanguageTool failed\n${res.statusText}`, 5000);
 			throw new Error(`unexpected status ${res.status}, see network tab`);
 		}
+
 		const body: LanguageToolApi = await res.json();
 		this.hashLru.set(hash, body);
+
 		return body;
+	}
+
+	private clearMarks(editor: CodeMirror.Editor) {
+		editor.getAllMarks().forEach(mark => mark.clear());
+		this.markerMap.clear();
 	}
 
 	private async runDetection(editor: CodeMirror.Editor) {
@@ -132,9 +198,10 @@ export default class LanguageToolPlugin extends Plugin {
 
 		const parsedText = Remark.build(text, Remark.defaults);
 		const res = await this.getDetectionResult(JSON.stringify(parsedText));
-		editor.getAllMarks().forEach(mark => mark.clear());
-		this.markerMap.clear();
+
+		this.clearMarks(editor);
 		this.statusBarText.setText(res.language.name);
+
 		for (const match of res.matches!) {
 			const line = this.getLine(fullText, match.offset + offset);
 
@@ -142,7 +209,7 @@ export default class LanguageToolPlugin extends Plugin {
 				{ ch: line.remaining, line: line.line },
 				{ ch: line.remaining + match.length, line: line.line },
 				{
-					className: match.rule.issueType === 'typographical' ? 'lt-minor' : 'lt-major',
+					className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
 					clearOnEnter: false,
 				},
 			);
