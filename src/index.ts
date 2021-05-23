@@ -26,6 +26,14 @@ export default class LanguageToolPlugin extends Plugin {
 
 	public async onload() {
 		await this.loadSettings();
+		if (this.settings.serverUrl.includes('/v2/check')) {
+			new Notice(
+				"invalid or outdated LanguageTool Settings, I'm trying to fix it.\nIf it does not work, simply reinstall the plugin",
+				10000,
+			);
+			this.settings.serverUrl = this.settings.serverUrl.replace('/v2/check', '');
+			await this.saveSettings();
+		}
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
 		// Using the click event won't trigger the widget consistently, so use pointerup instead
