@@ -1,6 +1,6 @@
 import * as Remark from 'annotatedtext-remark';
 import CodeMirror from 'codemirror';
-import { MarkdownView, Notice, Plugin } from 'obsidian';
+import { MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
 import { getIssueTypeClassName, getRuleCategories } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
@@ -24,8 +24,34 @@ export default class LanguageToolPlugin extends Plugin {
 		this.clearMarks(cm);
 	}
 
+	private setStatusBarReady() {
+		this.statusBarText.empty();
+		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
+			setIcon(span, 'check-small');
+			span.createSpan({ text: 'LanguageTool' });
+		});
+	}
+
+	private setStatusBarWorking() {
+		this.statusBarText.empty();
+		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
+			setIcon(span, 'sync-small');
+			span.createSpan({ text: 'LanguageTool' });
+		});
+	}
+
 	public async onload() {
 		await this.loadSettings();
+
+		this.statusBarText.onClickEvent(async () => {
+			const activeLeaf = this.app.workspace.activeLeaf;
+			if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
+				await this.runDetection(activeLeaf.view.sourceMode.cmEditor);
+			}
+		});
+
+		this.setStatusBarReady();
+
 		if (this.settings.serverUrl.includes('/v2/check')) {
 			new Notice(
 				"invalid or outdated LanguageTool Settings, I'm trying to fix it.\nIf it does not work, simply reinstall the plugin",
@@ -34,6 +60,7 @@ export default class LanguageToolPlugin extends Plugin {
 			this.settings.serverUrl = this.settings.serverUrl.replace('/v2/check', '');
 			await this.saveSettings();
 		}
+
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
 		// Using the click event won't trigger the widget consistently, so use pointerup instead
@@ -71,22 +98,26 @@ export default class LanguageToolPlugin extends Plugin {
 			const match = this.markerMap.get(marker);
 			if (!match) return;
 
+			const { from } = marker.find() as CodeMirror.MarkerRange;
+			const coords = editor.cursorCoords(from);
+
 			this.openWidget = new Widget(
 				{
+					position: coords,
 					message: match.message,
 					title: match.shortMessage,
 					buttons: match.replacements!.slice(0, 3).map(v => v.value),
 					category: match.rule.category.id,
+					onClick: text => {
+						const { from, to } = marker.find() as CodeMirror.MarkerRange;
+						editor.replaceRange(text, from, to);
+						marker.clear();
+						this.openWidget?.destroy();
+						this.openWidget = undefined;
+					},
 				},
 				this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
-			).on('click', text => {
-				const { from, to } = marker.find() as CodeMirror.MarkerRange;
-				editor.replaceRange(text, from, to);
-				marker.clear();
-				this.openWidget?.destroy();
-				this.openWidget = undefined;
-			});
-			editor.addWidget(lineCh, this.openWidget.element, true);
+			);
 		});
 
 		this.addCommand({
@@ -194,6 +225,8 @@ export default class LanguageToolPlugin extends Plugin {
 	}
 
 	private async runDetection(editor: CodeMirror.Editor) {
+		this.setStatusBarWorking();
+
 		let text: string;
 		const fullText = editor.getValue();
 		let offset = 0;
@@ -208,7 +241,6 @@ export default class LanguageToolPlugin extends Plugin {
 		const res = await this.getDetectionResult(JSON.stringify(parsedText));
 
 		this.clearMarks(editor);
-		this.statusBarText.setText(res.language.name);
 
 		for (const match of res.matches!) {
 			const line = this.getLine(fullText, match.offset + offset);
@@ -223,6 +255,8 @@ export default class LanguageToolPlugin extends Plugin {
 			);
 			this.markerMap.set(marker, match);
 		}
+
+		this.setStatusBarReady();
 	}
 
 	private getLine(text: string, offset: number): { line: number; remaining: number } {

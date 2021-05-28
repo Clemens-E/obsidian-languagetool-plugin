@@ -27,68 +27,102 @@
   background-color: #8981f321;
 }
 
-.lt-predictions-container-glass {
-  font-family: var(--default-font);
-  transform-origin: top;
-  animation-duration: 0.3s;
-  animation-name: lineInserted;
-  transition: height 0.1s;
-  display: grid;
-  grid-gap: 0.2rem;
-  text-align: center;
-  grid-template-columns: 1fr;
-  max-width: 24rem;
-  padding: 1rem;
-  background: hsla(0, 0%, 100%, 0.25);
-  backdrop-filter: blur(12px);
-  border-radius: 0.5rem;
-  border: 1px solid hsla(0, 0%, 100%, 0.25);
-  opacity: 1;
+@keyframes lineInserted {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
+.lt-predictions-container-glass,
 .lt-predictions-container {
-  font-family: var(--default-font);
-  background-color: var(--background-secondary, #3b444b);
-  transform-origin: top;
-  animation-duration: 0.3s;
+  position: absolute;
+  animation-duration: 150ms;
   animation-name: lineInserted;
-  transition: height 0.1s;
-  display: grid;
-  grid-gap: 0.2rem;
-  text-align: center;
-  grid-template-columns: 1fr;
-  max-width: 24rem;
-  border-radius: 0.5rem;
-  padding: 1rem;
+  font-family: var(--default-font);
+  font-size: 0.93rem;
+  padding: 12px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  width: 300px;
+  line-height: 1.5;
+  z-index: var(--layer-popover);
+  overflow: hidden;
+}
+
+.lt-predictions-container-glass {
+  background: hsla(0, 0%, 100%, 0.25);
+  backdrop-filter: blur(12px);
 }
 
 .lt-predictions-container > button {
   transition-delay: 0.5s;
 }
 
-.lt-buttoncontainer {
-  margin: 5px 5px 5px;
+.lt-buttoncontainer:not(:empty) {
+  padding-top: 10px;
 }
 
 .lt-buttoncontainer > button {
+  border: 1px solid var(--background-modifier-border);
+  font-size: 1rem;
+  margin-right: 4px;
   margin-bottom: 4px;
+  padding: 4px 10px;
 }
 
 .lt-title {
   display: block;
-  text-decoration: underline;
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 .lt-message {
   display: block;
 }
 
-@keyframes lineInserted {
+.lt-status-bar-btn {
+  height: 100%;
+  display: flex;
+  cursor: pointer;
+  line-height: 1;
+  align-items: center;
+}
+
+.lt-status-bar-btn > span {
+  margin-left: 4px;
+}
+
+.lt-minor .lt-title > span {
+  box-shadow: inset 0 -2px #e9b35f88;
+}
+
+.lt-major .lt-title > span {
+  box-shadow: inset 0 -2px #da615c88;
+}
+
+.lt-style .lt-title > span {
+  box-shadow: inset 0 -2px #8981f388;
+}
+
+.lt-loading > svg {
+  animation-name: spin;
+  animation-duration: 1s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+@keyframes spin {
   from {
-    transform: scaleY(0);
+    transform: rotate(0deg);
   }
 
   to {
-    transform: scaleY(1);
+    transform: rotate(360deg);
   }
 }

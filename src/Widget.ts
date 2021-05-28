@@ -1,54 +1,59 @@
-import EventEmitter from 'events';
 import { getIssueTypeClassName } from './helpers';
 
-export declare interface Widget {
-	on(event: 'click', listener: (name: string) => any): this;
-	on(event: 'destroy', listener: () => any): this;
-	on(event: string, listener: Function): this;
+interface WidgetArgs {
+	position: { left: number; bottom: number; top: number };
+	title: string;
+	message: string;
+	buttons: string[];
+	category: string;
+	onClick: (text: string) => void;
 }
 
-export class Widget extends EventEmitter {
+export class Widget {
 	private readonly elem: HTMLElement;
 
 	public get element() {
 		return this.elem;
 	}
 
-	public constructor(
-		args: { title: string; message: string; buttons: string[]; category: string },
-		classToUse: string,
-	) {
-		super();
-		const rootDiv = document.createElement('div');
-		rootDiv.style.zIndex = '99';
-		rootDiv.classList.add(classToUse, getIssueTypeClassName(args.category));
-		const titleSpan = document.createElement('span');
-		titleSpan.classList.add('lt-title');
-		titleSpan.innerText = args.title;
+	public constructor(args: WidgetArgs, classToUse: string) {
+		this.elem = createDiv({ cls: [classToUse, getIssueTypeClassName(args.category)] }, root => {
+			root.style.setProperty('left', `${args.position.left}px`);
+			root.style.setProperty('top', `${args.position.bottom}px`);
 
-		const messageSpan = document.createElement('span');
-		messageSpan.classList.add('lt-message');
-		messageSpan.innerText = args.message;
+			if (args.title) {
+				root.createSpan({ cls: 'lt-title' }, span => {
+					span.createSpan({ text: args.title });
+				});
+			}
+			root.createSpan({ cls: 'lt-message', text: args.message });
+			root.createDiv({ cls: 'lt-buttoncontainer' }, buttonContainer => {
+				for (const btnText of args.buttons) {
+					buttonContainer.createEl('button', { text: btnText }, button => {
+						button.onclick = () => {
+							this.destroy();
+							args.onClick(btnText);
+						};
+					});
+				}
+			});
+		});
+		document.body.append(this.elem);
 
-		rootDiv.appendChild(titleSpan);
-		rootDiv.appendChild(messageSpan);
-		const buttonContainer = document.createElement('div');
-		buttonContainer.classList.add('lt-buttoncontainer');
-		for (const btnText of args.buttons) {
-			const button = document.createElement('button');
-			button.innerText = btnText;
-			button.onclick = () => {
-				this.emit('click', btnText);
-				rootDiv.remove();
-			};
-			buttonContainer.appendChild(button);
+		// Ensure widget is on screen
+		const height = this.elem.clientHeight;
+		const width = this.elem.clientWidth;
+
+		if (args.position.bottom + height > window.innerHeight) {
+			this.elem.style.setProperty('top', `${args.position.top - height}px`);
 		}
-		rootDiv.appendChild(buttonContainer);
-		this.elem = rootDiv;
+
+		if (args.position.left + width > window.innerWidth) {
+			this.elem.style.setProperty('left', `${window.innerWidth - width - 15}px`);
+		}
 	}
 
 	public destroy() {
 		this.elem?.remove();
-		this.emit('destroy');
 	}
 }
