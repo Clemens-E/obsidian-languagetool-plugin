@@ -1,4 +1,72 @@
+import { MatchesEntity } from './LanguageToolTypings';
 import { LanguageToolPluginSettings } from './SettingsTab';
+
+export function hashString(value: string) {
+	let hash = 0;
+	if (value.length === 0) {
+		return hash;
+	}
+	for (let i = 0; i < value.length; i++) {
+		const char = value.charCodeAt(i);
+		hash = (hash << 5) - hash + char;
+		hash &= hash; // Convert to 32bit integer
+	}
+	return hash;
+}
+
+export function isPositionWithinRange(pos: CodeMirror.Position, start: CodeMirror.Position, end: CodeMirror.Position) {
+	if (pos.line > start.line || (pos.line === start.line && pos.ch >= start.ch)) {
+		if (pos.line < end.line || (pos.line === end.line && pos.ch <= end.ch)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export function clearMarks(
+	markerMap: Map<CodeMirror.TextMarker, MatchesEntity>,
+	editor: CodeMirror.Editor,
+	from?: CodeMirror.Position,
+	to?: CodeMirror.Position,
+) {
+	editor.getAllMarks().forEach(mark => {
+		if (from && to) {
+			const marker = mark.find();
+
+			if (marker) {
+				const range = marker as CodeMirror.MarkerRange;
+
+				// Clear the mark if either end are between from and to
+				if (isPositionWithinRange(range.from, from, to)) {
+					markerMap.delete(mark);
+					return mark.clear();
+				}
+
+				if (isPositionWithinRange(range.to, from, to)) {
+					markerMap.delete(mark);
+					return mark.clear();
+				}
+			}
+
+			return;
+		}
+
+		markerMap.delete(mark);
+		mark.clear();
+	});
+}
+
+export function getLine(text: string, offset: number): { line: number; remaining: number } {
+	let lineCount = 0;
+	let offsetC = offset;
+	const lines = text.split('\n');
+	for (const line of lines) {
+		lineCount++;
+		if (offsetC - line.length < 1) break;
+		offsetC -= line.length + 1;
+	}
+	return { line: lineCount - 1, remaining: offsetC };
+}
 
 // Assign a CSS class based on a rule's category ID
 export function getIssueTypeClassName(categoryId: string) {

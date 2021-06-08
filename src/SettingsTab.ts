@@ -2,6 +2,8 @@ import { App, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import LanguageToolPlugin from '.';
 
 export interface LanguageToolPluginSettings {
+	shouldAutoCheck: boolean;
+
 	serverUrl: string;
 	glassBg: boolean;
 	apikey?: string;
@@ -35,6 +37,7 @@ export interface LanguageToolPluginSettings {
 export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 	serverUrl: 'https://api.languagetool.org',
 	glassBg: false,
+	shouldAutoCheck: false,
 
 	pickyMode: false,
 	ruleGrammar: true,
@@ -77,10 +80,9 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('h2', { text: 'Settings for LanguageTool' });
-
 		new Setting(containerEl)
 			.setName('Endpoint')
-			.setDesc('endpoint that will be used to make requests to')
+			.setDesc('Endpoint that will be used to make requests to')
 			.then(setting => {
 				let input: TextComponent | null = null;
 
@@ -107,8 +109,17 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					});
 			});
 		new Setting(containerEl)
+			.setName('Autocheck Text')
+			.setDesc('Check text as you type')
+			.addToggle(component => {
+				component.setValue(this.plugin.settings.shouldAutoCheck).onChange(async value => {
+					this.plugin.settings.shouldAutoCheck = value;
+					await this.plugin.saveSettings();
+				});
+			});
+		new Setting(containerEl)
 			.setName('Glass Background')
-			.setDesc('use the secondary background color of the theme or a glass background')
+			.setDesc('Use the secondary background color of the theme or a glass background')
 			.addToggle(component => {
 				component.setValue(this.plugin.settings.glassBg).onChange(async value => {
 					this.plugin.settings.glassBg = value;
