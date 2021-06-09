@@ -1,7 +1,7 @@
 import * as Remark from 'annotatedtext-remark';
 import { debounce, Debouncer, MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
-import { clearMarks, getIssueTypeClassName, getLine, getRuleCategories, hashString } from './helpers';
+import { clearMarks, getIssueTypeClassName, getLine, getRuleCategories, hashString, shouldCheckLine } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
@@ -184,7 +184,11 @@ export default class LanguageToolPlugin extends Plugin {
 			const dirtyLines: number[] = this.dirtyLines.has(instance) ? (this.dirtyLines.get(instance) as number[]) : [];
 
 			delta.text.forEach((_, i) => {
-				dirtyLines.push(delta.from.line + i);
+				const line = delta.from.line + i;
+
+				if (shouldCheckLine(instance, { ...delta.from, line })) {
+					dirtyLines.push(line);
+				}
 			});
 
 			this.dirtyLines.set(instance, dirtyLines);
@@ -339,6 +343,11 @@ export default class LanguageToolPlugin extends Plugin {
 
 		for (const match of res.matches!) {
 			const line = getLine(fullText, match.offset + offset);
+
+			if (!shouldCheckLine(editor, { ch: line.remaining, line: line.line })) {
+				continue;
+			}
+
 			const marker = editor.markText(
 				{ ch: line.remaining, line: line.line },
 				{ ch: line.remaining + match.length, line: line.line },
@@ -347,6 +356,7 @@ export default class LanguageToolPlugin extends Plugin {
 					clearOnEnter: false,
 				},
 			);
+
 			this.markerMap.set(marker, match);
 		}
 

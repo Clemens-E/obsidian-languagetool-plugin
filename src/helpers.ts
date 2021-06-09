@@ -23,6 +23,22 @@ export function isPositionWithinRange(pos: CodeMirror.Position, start: CodeMirro
 	return false;
 }
 
+const ignoreListRegEx = /frontmatter|code/;
+
+export function shouldCheckLine(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
+	const tokens = instance.getTokenTypeAt(pos);
+
+	if (!tokens) {
+		return true;
+	}
+
+	if (!ignoreListRegEx.test(tokens)) {
+		return true;
+	}
+
+	return false;
+}
+
 export function clearMarks(
 	markerMap: Map<CodeMirror.TextMarker, MatchesEntity>,
 	editor: CodeMirror.Editor,
