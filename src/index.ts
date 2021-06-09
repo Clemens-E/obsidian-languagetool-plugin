@@ -1,41 +1,35 @@
 import * as Remark from 'annotatedtext-remark';
-import { debounce, MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
+import { debounce, Debouncer, MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
 import { clearMarks, getIssueTypeClassName, getLine, getRuleCategories, hashString } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
 
-interface DirtyLineMap {
-	[k: string]: { [line: number]: true };
-}
-
 export default class LanguageToolPlugin extends Plugin {
 	public settings: LanguageToolPluginSettings;
 	private openWidget: Widget | undefined;
-	private readonly statusBarText = this.addStatusBarItem();
-	private readonly markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
-	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
-		maxSize: 10,
-	});
+	private statusBarText: HTMLElement;
+	private markerMap: Map<CodeMirror.TextMarker, MatchesEntity>;
+	private hashLru: QuickLRU<number, LanguageToolApi>;
 
-	private readonly dirtyLines: DirtyLineMap = {};
-
-	public onunload() {
-		if (this.markerMap.size === 0) return;
-		const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
-
-		if (markdownLeaves) {
-			markdownLeaves.forEach(leaf => {
-				const cm = (leaf.view as MarkdownView)?.sourceMode?.cmEditor;
-				if (cm) {
-					clearMarks(this.markerMap, cm);
-				}
-			});
-		}
-	}
+	private dirtyLines: WeakMap<CodeMirror.Editor, number[]>;
+	private checkLines: Debouncer<CodeMirror.Editor[]>;
 
 	public async onload() {
+		this.statusBarText = this.addStatusBarItem();
+		this.markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
+		this.hashLru = new QuickLRU<number, LanguageToolApi>({
+			maxSize: 10,
+		});
+		this.dirtyLines = new WeakMap();
+		this.checkLines = debounce(
+			this.runAutoDetection,
+			// The API has a rate limit of 1 request every 3 seconds
+			3000,
+			true,
+		);
+
 		await this.loadSettings();
 
 		if (this.settings.serverUrl.includes('/v2/check')) {
@@ -51,84 +45,10 @@ export default class LanguageToolPlugin extends Plugin {
 			}
 		}
 
-		this.registerCodeMirror(cm => {
-			const id = this.getCodeMirrorID(cm);
-			const checkLines = debounce(
-				async () => {
-					if (!this.dirtyLines[id]) return;
+		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
-					const linesToCheck = Object.keys(this.dirtyLines[id]).sort((a, b) => {
-						return Number(a) - Number(b);
-					});
-
-					if (!linesToCheck.length) {
-						return;
-					}
-
-					delete this.dirtyLines[id];
-
-					const start: CodeMirror.Position = {
-						line: Number(linesToCheck[0]),
-						ch: 0,
-					};
-
-					const lastLineIndex = Number(linesToCheck[linesToCheck.length - 1]);
-					const lastLine = cm.getLine(lastLineIndex);
-
-					const end: CodeMirror.Position = {
-						line: Number(linesToCheck[linesToCheck.length - 1]),
-						ch: lastLine.length,
-					};
-
-					try {
-						await this.runDetection(cm, start, end);
-					} catch (e) {
-						console.error(e);
-					}
-				},
-				// The API has a rate limit of 1 request every 3 seconds
-				3000,
-				true,
-			);
-
-			cm.on('change', (_, delta) => {
-				if (this.openWidget) {
-					this.openWidget.destroy();
-					this.openWidget = undefined;
-				}
-
-				// Clear markers on edit
-				if (this.markerMap.size > 0 && delta.origin && delta.origin[0] === '+') {
-					const marks = cm.findMarksAt(delta.from);
-
-					if (marks.length) {
-						marks.forEach(mark => mark.clear());
-					}
-				}
-
-				if (!this.settings.shouldAutoCheck || !delta.origin) {
-					return;
-				}
-
-				if (delta.origin[0] === '+' || delta.origin === 'paste') {
-					if (!this.dirtyLines[id]) {
-						this.dirtyLines[id] = {};
-					}
-
-					delta.text.forEach((_, i) => {
-						this.dirtyLines[id][delta.from.line + i] = true;
-					});
-
-					checkLines();
-				}
-			});
-		});
-
-		this.app.workspace.on('layout-change', () => {
-			this.cleanDirtyLines();
-		});
-
-		this.statusBarText.onClickEvent(async () => {
+		this.setStatusBarReady();
+		this.registerDomEvent(this.statusBarText, 'click', async () => {
 			const activeLeaf = this.app.workspace.activeLeaf;
 			if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
 				try {
@@ -139,9 +59,9 @@ export default class LanguageToolPlugin extends Plugin {
 			}
 		});
 
-		this.setStatusBarReady();
-
-		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
+		this.registerCodeMirror(cm => {
+			cm.on('change', this.onCodemirrorChange);
+		});
 
 		// Using the click event won't trigger the widget consistently, so use pointerup instead
 		this.registerDomEvent(document, 'pointerup', e => {
@@ -234,6 +154,44 @@ export default class LanguageToolPlugin extends Plugin {
 		});
 	}
 
+	public onunload() {
+		this.app.workspace.iterateCodeMirrors(cm => {
+			clearMarks(this.markerMap, cm);
+			cm.off('change', this.onCodemirrorChange);
+		});
+	}
+
+	private readonly onCodemirrorChange = (instance: CodeMirror.Editor, delta: CodeMirror.EditorChangeLinkedList) => {
+		if (this.openWidget) {
+			this.openWidget.destroy();
+			this.openWidget = undefined;
+		}
+
+		// Clear markers on edit
+		if (this.markerMap.size > 0 && delta.origin && delta.origin[0] === '+') {
+			const marks = instance.findMarksAt(delta.from);
+
+			if (marks.length) {
+				marks.forEach(mark => mark.clear());
+			}
+		}
+
+		if (!this.settings.shouldAutoCheck || !delta.origin) {
+			return;
+		}
+
+		if (delta.origin[0] === '+' || delta.origin === 'paste') {
+			const dirtyLines: number[] = this.dirtyLines.has(instance) ? (this.dirtyLines.get(instance) as number[]) : [];
+
+			delta.text.forEach((_, i) => {
+				dirtyLines.push(delta.from.line + i);
+			});
+
+			this.dirtyLines.set(instance, dirtyLines);
+			this.checkLines(instance);
+		}
+	};
+
 	private async getDetectionResult(text: string): Promise<LanguageToolApi> {
 		const hash = hashString(text);
 		if (this.hashLru.has(hash)) {
@@ -317,6 +275,37 @@ export default class LanguageToolPlugin extends Plugin {
 		return body;
 	}
 
+	private readonly runAutoDetection = async (instance: CodeMirror.Editor) => {
+		const dirtyLines = this.dirtyLines.get(instance);
+
+		if (!dirtyLines || dirtyLines.length === 0) return;
+
+		const linesToCheck = dirtyLines.sort((a, b) => {
+			return Number(a) - Number(b);
+		});
+
+		this.dirtyLines.delete(instance);
+
+		const start: CodeMirror.Position = {
+			line: Number(linesToCheck[0]),
+			ch: 0,
+		};
+
+		const lastLineIndex = Number(linesToCheck[linesToCheck.length - 1]);
+		const lastLine = instance.getLine(lastLineIndex);
+
+		const end: CodeMirror.Position = {
+			line: Number(linesToCheck[linesToCheck.length - 1]),
+			ch: lastLine.length,
+		};
+
+		try {
+			await this.runDetection(instance, start, end);
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
 	private async runDetection(
 		editor: CodeMirror.Editor,
 		selectionFrom?: CodeMirror.Position,
@@ -377,31 +366,6 @@ export default class LanguageToolPlugin extends Plugin {
 		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
 			setIcon(span, 'sync-small');
 			span.createSpan({ text: 'LanguageTool' });
-		});
-	}
-
-	private getCodeMirrorID(cm: CodeMirror.Editor) {
-		const gutter = cm.getGutterElement();
-		const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
-		const containingLeaf = markdownLeaves.find(l => l.view.containerEl.contains(gutter));
-
-		if (containingLeaf) {
-			return (containingLeaf as any).id;
-		}
-
-		return null;
-	}
-
-	private cleanDirtyLines() {
-		const ids = Object.keys(this.dirtyLines);
-		const markdownLeaves = this.app.workspace.getLeavesOfType('markdown');
-
-		const toRemove = ids.filter(id => {
-			return Boolean(markdownLeaves.find(leaf => (leaf as any).id === id));
-		});
-
-		toRemove.forEach(id => {
-			delete this.dirtyLines[id];
 		});
 	}
 
