@@ -15,6 +15,7 @@ export default class LanguageToolPlugin extends Plugin {
 
 	private dirtyLines: WeakMap<CodeMirror.Editor, number[]>;
 	private checkLines: Debouncer<CodeMirror.Editor[]>;
+	private isloading = false;
 
 	public async onload() {
 		this.statusBarText = this.addStatusBarItem();
@@ -192,6 +193,8 @@ export default class LanguageToolPlugin extends Plugin {
 			});
 
 			this.dirtyLines.set(instance, dirtyLines);
+
+			this.setStatusBarWorking();
 			this.checkLines(instance);
 		}
 	};
@@ -282,7 +285,9 @@ export default class LanguageToolPlugin extends Plugin {
 	private readonly runAutoDetection = async (instance: CodeMirror.Editor) => {
 		const dirtyLines = this.dirtyLines.get(instance);
 
-		if (!dirtyLines || dirtyLines.length === 0) return;
+		if (!dirtyLines || dirtyLines.length === 0) {
+			return this.setStatusBarReady();
+		}
 
 		const linesToCheck = dirtyLines.sort((a, b) => {
 			return Number(a) - Number(b);
@@ -307,6 +312,7 @@ export default class LanguageToolPlugin extends Plugin {
 			await this.runDetection(instance, start, end);
 		} catch (e) {
 			console.error(e);
+			this.setStatusBarReady();
 		}
 	};
 
@@ -332,6 +338,7 @@ export default class LanguageToolPlugin extends Plugin {
 		try {
 			res = await this.getDetectionResult(JSON.stringify(parsedText));
 		} catch (e) {
+			this.setStatusBarReady();
 			return Promise.reject(e);
 		}
 
@@ -364,6 +371,7 @@ export default class LanguageToolPlugin extends Plugin {
 	}
 
 	private setStatusBarReady() {
+		this.isloading = false;
 		this.statusBarText.empty();
 		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
 			setIcon(span, 'check-small');
@@ -372,6 +380,9 @@ export default class LanguageToolPlugin extends Plugin {
 	}
 
 	private setStatusBarWorking() {
+		if (this.isloading) return;
+
+		this.isloading = true;
 		this.statusBarText.empty();
 		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
 			setIcon(span, 'sync-small');

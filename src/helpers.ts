@@ -26,12 +26,19 @@ export function isPositionWithinRange(pos: CodeMirror.Position, start: CodeMirro
 const ignoreListRegEx = /frontmatter|code/;
 
 export function shouldCheckLine(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
+	// Empty line
+	if (!instance.getLine(pos.line)) {
+		return false;
+	}
+
 	const tokens = instance.getTokenTypeAt(pos);
 
+	// Plain text line
 	if (!tokens) {
 		return true;
 	}
 
+	// Not codeblock or frontmatter
 	if (!ignoreListRegEx.test(tokens)) {
 		return true;
 	}
