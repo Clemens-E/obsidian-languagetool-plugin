@@ -79,18 +79,6 @@ export function clearMarks(
 	});
 }
 
-export function getLine(text: string, offset: number): { line: number; remaining: number } {
-	let lineCount = 0;
-	let offsetC = offset;
-	const lines = text.split('\n');
-	for (const line of lines) {
-		lineCount++;
-		if (offsetC - line.length < 1) break;
-		offsetC -= line.length + 1;
-	}
-	return { line: lineCount - 1, remaining: offsetC };
-}
-
 // Assign a CSS class based on a rule's category ID
 export function getIssueTypeClassName(categoryId: string) {
 	switch (categoryId) {

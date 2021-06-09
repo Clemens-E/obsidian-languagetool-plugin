@@ -1,7 +1,7 @@
 import * as Remark from 'annotatedtext-remark';
 import { debounce, Debouncer, MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
-import { clearMarks, getIssueTypeClassName, getLine, getRuleCategories, hashString, shouldCheckLine } from './helpers';
+import { clearMarks, getIssueTypeClassName, getRuleCategories, hashString, shouldCheckLine } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
@@ -100,17 +100,23 @@ export default class LanguageToolPlugin extends Plugin {
 			if (!match) return;
 
 			const { from, to } = marker.find() as CodeMirror.MarkerRange;
-			const coords = editor.cursorCoords(from);
+			const position = editor.cursorCoords(from);
+			const matchedString = editor.getRange(from, to);
 
 			this.openWidget = new Widget(
 				{
-					position: coords,
-					message: match.message,
-					title: match.shortMessage,
-					buttons: match.replacements!.slice(0, 3).map(v => v.value),
-					category: match.rule.category.id,
+					match,
+					matchedString,
+					position,
 					onClick: text => {
 						editor.replaceRange(text, from, to);
+						marker.clear();
+						this.openWidget?.destroy();
+						this.openWidget = undefined;
+					},
+					addToDictionary: text => {
+						const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary') || [];
+						(this.app.vault as any).setConfig('spellcheckDictionary', [...spellcheckDictionary, text]);
 						marker.clear();
 						this.openWidget?.destroy();
 						this.openWidget = undefined;
@@ -156,6 +162,11 @@ export default class LanguageToolPlugin extends Plugin {
 	}
 
 	public onunload() {
+		if (this.openWidget) {
+			this.openWidget.destroy();
+			this.openWidget = undefined;
+		}
+
 		this.app.workspace.iterateCodeMirrors(cm => {
 			clearMarks(this.markerMap, cm);
 			cm.off('change', this.onCodemirrorChange);
@@ -289,22 +300,22 @@ export default class LanguageToolPlugin extends Plugin {
 			return this.setStatusBarReady();
 		}
 
-		const linesToCheck = dirtyLines.sort((a, b) => {
-			return Number(a) - Number(b);
-		});
-
 		this.dirtyLines.delete(instance);
 
+		const linesToCheck = dirtyLines.sort((a, b) => {
+			return a - b;
+		});
+
+		const lastLineIndex = linesToCheck[linesToCheck.length - 1];
+		const lastLine = instance.getLine(lastLineIndex);
+
 		const start: CodeMirror.Position = {
-			line: Number(linesToCheck[0]),
+			line: linesToCheck[0],
 			ch: 0,
 		};
 
-		const lastLineIndex = Number(linesToCheck[linesToCheck.length - 1]);
-		const lastLine = instance.getLine(lastLineIndex);
-
 		const end: CodeMirror.Position = {
-			line: Number(linesToCheck[linesToCheck.length - 1]),
+			line: linesToCheck[linesToCheck.length - 1],
 			ch: lastLine.length,
 		};
 
@@ -323,14 +334,9 @@ export default class LanguageToolPlugin extends Plugin {
 	) {
 		this.setStatusBarWorking();
 
-		const fullText = editor.getValue();
-		let text = fullText;
-		let offset = 0;
-
-		if (selectionFrom && selectionTo) {
-			text = editor.getRange(selectionFrom, selectionTo);
-			offset = editor.getRange({ line: 0, ch: 0 }, selectionFrom).length;
-		}
+		const doc = editor.getDoc();
+		const text = selectionFrom && selectionTo ? editor.getRange(selectionFrom, selectionTo) : editor.getValue();
+		const offset = selectionFrom && selectionTo ? doc.indexFromPos(selectionFrom) : 0;
 
 		const parsedText = Remark.build(text, Remark.defaults);
 
@@ -348,26 +354,39 @@ export default class LanguageToolPlugin extends Plugin {
 			clearMarks(this.markerMap, editor);
 		}
 
-		for (const match of res.matches!) {
-			const line = getLine(fullText, match.offset + offset);
+		if (!res.matches) {
+			return this.setStatusBarReady();
+		}
 
-			if (!shouldCheckLine(editor, { ch: line.remaining, line: line.line })) {
+		for (const match of res.matches) {
+			const start = doc.posFromIndex(match.offset + offset);
+			const end = doc.posFromIndex(match.offset + offset + match.length);
+
+			if (!shouldCheckLine(editor, start) || !this.matchAllowed(match, editor.getRange(start, end))) {
 				continue;
 			}
 
-			const marker = editor.markText(
-				{ ch: line.remaining, line: line.line },
-				{ ch: line.remaining + match.length, line: line.line },
-				{
-					className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
-					clearOnEnter: false,
-				},
-			);
+			const marker = editor.markText(start, end, {
+				className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
+				clearOnEnter: false,
+			});
 
 			this.markerMap.set(marker, match);
 		}
 
 		this.setStatusBarReady();
+	}
+
+	private matchAllowed(match: MatchesEntity, str: string) {
+		if (match.rule.category.id === 'TYPOS') {
+			const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary');
+
+			if (spellcheckDictionary && spellcheckDictionary.includes(str)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private setStatusBarReady() {
