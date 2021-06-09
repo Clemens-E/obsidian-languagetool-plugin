@@ -110,14 +110,31 @@ export default class LanguageToolPlugin extends Plugin {
 					position,
 					onClick: text => {
 						editor.replaceRange(text, from, to);
+
 						marker.clear();
+
 						this.openWidget?.destroy();
 						this.openWidget = undefined;
 					},
 					addToDictionary: text => {
 						const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary') || [];
 						(this.app.vault as any).setConfig('spellcheckDictionary', [...spellcheckDictionary, text]);
+
 						marker.clear();
+
+						this.openWidget?.destroy();
+						this.openWidget = undefined;
+					},
+					ignoreSuggestion: () => {
+						editor.markText(from, to, {
+							clearOnEnter: false,
+							attributes: {
+								isIgnored: 'true',
+							},
+						});
+
+						marker.clear();
+
 						this.openWidget?.destroy();
 						this.openWidget = undefined;
 					},
@@ -360,6 +377,12 @@ export default class LanguageToolPlugin extends Plugin {
 
 		for (const match of res.matches) {
 			const start = doc.posFromIndex(match.offset + offset);
+			const markers = editor.findMarksAt(start);
+
+			if (markers && markers.length > 0) {
+				continue;
+			}
+
 			const end = doc.posFromIndex(match.offset + offset + match.length);
 
 			if (!shouldCheckLine(editor, start) || !this.matchAllowed(match, editor.getRange(start, end))) {

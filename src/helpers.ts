@@ -14,15 +14,6 @@ export function hashString(value: string) {
 	return hash;
 }
 
-export function isPositionWithinRange(pos: CodeMirror.Position, start: CodeMirror.Position, end: CodeMirror.Position) {
-	if (pos.line > start.line || (pos.line === start.line && pos.ch >= start.ch)) {
-		if (pos.line < end.line || (pos.line === end.line && pos.ch <= end.ch)) {
-			return true;
-		}
-	}
-	return false;
-}
-
 const ignoreListRegEx = /frontmatter|code/;
 
 export function shouldCheckLine(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
@@ -52,31 +43,17 @@ export function clearMarks(
 	from?: CodeMirror.Position,
 	to?: CodeMirror.Position,
 ) {
-	editor.getAllMarks().forEach(mark => {
-		if (from && to) {
-			const marker = mark.find();
-
-			if (marker) {
-				const range = marker as CodeMirror.MarkerRange;
-
-				// Clear the mark if either end are between from and to
-				if (isPositionWithinRange(range.from, from, to)) {
-					markerMap.delete(mark);
-					return mark.clear();
-				}
-
-				if (isPositionWithinRange(range.to, from, to)) {
-					markerMap.delete(mark);
-					return mark.clear();
-				}
-			}
-
-			return;
-		}
-
+	const clearMark = (mark: CodeMirror.TextMarker<CodeMirror.MarkerRange>) => {
+		if (mark.attributes?.isIgnored) return;
 		markerMap.delete(mark);
 		mark.clear();
-	});
+	};
+
+	if (from && to) {
+		return editor.findMarks(from, to).forEach(clearMark);
+	}
+
+	editor.getAllMarks().forEach(clearMark);
 }
 
 // Assign a CSS class based on a rule's category ID

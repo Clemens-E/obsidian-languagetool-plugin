@@ -8,6 +8,7 @@ interface WidgetArgs {
 	position: { left: number; bottom: number; top: number };
 	onClick: (text: string) => void;
 	addToDictionary: (text: string) => void;
+	ignoreSuggestion: () => void;
 }
 
 export class Widget {
@@ -49,17 +50,23 @@ export class Widget {
 				});
 			}
 
-			if (category === 'TYPOS') {
-				root.createDiv({ cls: 'lt-ignorecontainer' }, container => {
-					container.createEl('button', { cls: 'lt-ignore-btn' }, button => {
+			root.createDiv({ cls: 'lt-ignorecontainer' }, container => {
+				container.createEl('button', { cls: 'lt-ignore-btn' }, button => {
+					if (category === 'TYPOS') {
 						setIcon(button.createSpan(), 'plus-with-circle');
 						button.createSpan({ text: 'Add to personal dictionary' });
 						button.onclick = () => {
 							args.addToDictionary(args.matchedString);
 						};
-					});
+					} else {
+						setIcon(button.createSpan(), 'cross');
+						button.createSpan({ text: 'Ignore suggestion' });
+						button.onclick = () => {
+							args.ignoreSuggestion();
+						};
+					}
 				});
-			}
+			});
 		});
 
 		document.body.append(this.elem);
