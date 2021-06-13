@@ -101,6 +101,12 @@
   align-items: center;
 }
 
+.lt-status-bar-check-icon {
+  display: block;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
 .lt-ignore-btn {
   margin: 0;
   padding: 12px;
@@ -115,10 +121,6 @@
 
 .lt-ignore-btn > span {
   display: flex;
-}
-
-.lt-status-bar-btn > span {
-  margin-left: 4px;
 }
 
 .lt-ignore-btn > span:last-child {

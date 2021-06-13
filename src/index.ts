@@ -1,5 +1,5 @@
 import * as Remark from 'annotatedtext-remark';
-import { debounce, Debouncer, MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
+import { debounce, Debouncer, MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
 import { clearMarks, getIssueTypeClassName, getRuleCategories, hashString, shouldCheckLine } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
@@ -18,7 +18,6 @@ export default class LanguageToolPlugin extends Plugin {
 	private isloading = false;
 
 	public async onload() {
-		this.statusBarText = this.addStatusBarItem();
 		this.markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
 		this.hashLru = new QuickLRU<number, LanguageToolApi>({
 			maxSize: 10,
@@ -48,16 +47,52 @@ export default class LanguageToolPlugin extends Plugin {
 
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
-		this.setStatusBarReady();
-		this.registerDomEvent(this.statusBarText, 'click', async () => {
-			const activeLeaf = this.app.workspace.activeLeaf;
-			if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
-				try {
-					await this.runDetection(activeLeaf.view.sourceMode.cmEditor);
-				} catch (e) {
-					console.error(e);
-				}
-			}
+		this.app.workspace.onLayoutReady(() => {
+			this.statusBarText = this.addStatusBarItem();
+			this.setStatusBarReady();
+			this.registerDomEvent(this.statusBarText, 'click', async () => {
+				const statusBarRect = this.statusBarText.parentElement?.getBoundingClientRect();
+				const statusBarIconRect = this.statusBarText.getBoundingClientRect();
+
+				new Menu(this.app)
+					.addItem(item => {
+						item.setTitle('Check current document');
+						item.setIcon('checkbox-glyph');
+						item.onClick(async () => {
+							const activeLeaf = this.app.workspace.activeLeaf;
+							if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
+								try {
+									await this.runDetection(activeLeaf.view.sourceMode.cmEditor);
+								} catch (e) {
+									console.error(e);
+								}
+							}
+						});
+					})
+					.addItem(item => {
+						item.setTitle(this.settings.shouldAutoCheck ? 'Disable automatic checking' : 'Enable automatic checking');
+						item.setIcon('uppercase-lowercase-a');
+						item.onClick(async () => {
+							this.settings.shouldAutoCheck = !this.settings.shouldAutoCheck;
+							await this.saveSettings();
+						});
+					})
+					.addItem(item => {
+						item.setTitle('Clear suggestions');
+						item.setIcon('reset');
+						item.onClick(() => {
+							const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+							if (!view) return;
+
+							const cm = view!.sourceMode.cmEditor;
+							clearMarks(this.markerMap, cm);
+						});
+					})
+					.showAtPosition({
+						x: statusBarIconRect.right + 5,
+						y: (statusBarRect?.top || 0) - 5,
+					});
+			});
 		});
 
 		this.registerCodeMirror(cm => {
@@ -416,8 +451,7 @@ export default class LanguageToolPlugin extends Plugin {
 		this.isloading = false;
 		this.statusBarText.empty();
 		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
-			setIcon(span, 'check-small');
-			span.createSpan({ text: 'LanguageTool' });
+			span.createSpan({ cls: 'lt-status-bar-check-icon', text: 'Aa' });
 		});
 	}
 
@@ -428,7 +462,6 @@ export default class LanguageToolPlugin extends Plugin {
 		this.statusBarText.empty();
 		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
 			setIcon(span, 'sync-small');
-			span.createSpan({ text: 'LanguageTool' });
 		});
 	}
 
