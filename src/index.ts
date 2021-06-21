@@ -1,8 +1,7 @@
 import * as Remark from 'annotatedtext-remark';
-import CodeMirror from 'codemirror';
-import { MarkdownView, Notice, Plugin, setIcon } from 'obsidian';
+import { debounce, Debouncer, MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
-import { getIssueTypeClassName, getRuleCategories } from './helpers';
+import { clearMarks, getIssueTypeClassName, getRuleCategories, hashString, shouldCheckLine } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
@@ -10,47 +9,28 @@ import { Widget } from './Widget';
 export default class LanguageToolPlugin extends Plugin {
 	public settings: LanguageToolPluginSettings;
 	private openWidget: Widget | undefined;
-	private readonly statusBarText = this.addStatusBarItem();
-	private readonly markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
+	private statusBarText: HTMLElement;
+	private markerMap: Map<CodeMirror.TextMarker, MatchesEntity>;
+	private hashLru: QuickLRU<number, LanguageToolApi>;
 
-	private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
-		maxSize: 10,
-	});
-
-	public onunload() {
-		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (!view || this.markerMap.size === 0) return;
-		const cm = view.sourceMode.cmEditor;
-		this.clearMarks(cm);
-	}
-
-	private setStatusBarReady() {
-		this.statusBarText.empty();
-		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
-			setIcon(span, 'check-small');
-			span.createSpan({ text: 'LanguageTool' });
-		});
-	}
-
-	private setStatusBarWorking() {
-		this.statusBarText.empty();
-		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
-			setIcon(span, 'sync-small');
-			span.createSpan({ text: 'LanguageTool' });
-		});
-	}
+	private dirtyLines: WeakMap<CodeMirror.Editor, number[]>;
+	private checkLines: Debouncer<CodeMirror.Editor[]>;
+	private isloading = false;
 
 	public async onload() {
-		await this.loadSettings();
-
-		this.statusBarText.onClickEvent(async () => {
-			const activeLeaf = this.app.workspace.activeLeaf;
-			if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
-				await this.runDetection(activeLeaf.view.sourceMode.cmEditor);
-			}
+		this.markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
+		this.hashLru = new QuickLRU<number, LanguageToolApi>({
+			maxSize: 10,
 		});
+		this.dirtyLines = new WeakMap();
+		this.checkLines = debounce(
+			this.runAutoDetection,
+			// The API has a rate limit of 1 request every 3 seconds
+			3000,
+			true,
+		);
 
-		this.setStatusBarReady();
+		await this.loadSettings();
 
 		if (this.settings.serverUrl.includes('/v2/check')) {
 			new Notice(
@@ -58,10 +38,66 @@ export default class LanguageToolPlugin extends Plugin {
 				10000,
 			);
 			this.settings.serverUrl = this.settings.serverUrl.replace('/v2/check', '');
-			await this.saveSettings();
+			try {
+				await this.saveSettings();
+			} catch (e) {
+				console.error(e);
+			}
 		}
 
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
+
+		this.app.workspace.onLayoutReady(() => {
+			this.statusBarText = this.addStatusBarItem();
+			this.setStatusBarReady();
+			this.registerDomEvent(this.statusBarText, 'click', async () => {
+				const statusBarRect = this.statusBarText.parentElement?.getBoundingClientRect();
+				const statusBarIconRect = this.statusBarText.getBoundingClientRect();
+
+				new Menu(this.app)
+					.addItem(item => {
+						item.setTitle('Check current document');
+						item.setIcon('checkbox-glyph');
+						item.onClick(async () => {
+							const activeLeaf = this.app.workspace.activeLeaf;
+							if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
+								try {
+									await this.runDetection(activeLeaf.view.sourceMode.cmEditor);
+								} catch (e) {
+									console.error(e);
+								}
+							}
+						});
+					})
+					.addItem(item => {
+						item.setTitle(this.settings.shouldAutoCheck ? 'Disable automatic checking' : 'Enable automatic checking');
+						item.setIcon('uppercase-lowercase-a');
+						item.onClick(async () => {
+							this.settings.shouldAutoCheck = !this.settings.shouldAutoCheck;
+							await this.saveSettings();
+						});
+					})
+					.addItem(item => {
+						item.setTitle('Clear suggestions');
+						item.setIcon('reset');
+						item.onClick(() => {
+							const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+							if (!view) return;
+
+							const cm = view!.sourceMode.cmEditor;
+							clearMarks(this.markerMap, cm);
+						});
+					})
+					.showAtPosition({
+						x: statusBarIconRect.right + 5,
+						y: (statusBarRect?.top || 0) - 5,
+					});
+			});
+		});
+
+		this.registerCodeMirror(cm => {
+			cm.on('change', this.onCodemirrorChange);
+		});
 
 		// Using the click event won't trigger the widget consistently, so use pointerup instead
 		this.registerDomEvent(document, 'pointerup', e => {
@@ -98,20 +134,42 @@ export default class LanguageToolPlugin extends Plugin {
 			const match = this.markerMap.get(marker);
 			if (!match) return;
 
-			const { from } = marker.find() as CodeMirror.MarkerRange;
-			const coords = editor.cursorCoords(from);
+			const { from, to } = marker.find() as CodeMirror.MarkerRange;
+			const position = editor.cursorCoords(from);
+			const matchedString = editor.getRange(from, to);
 
 			this.openWidget = new Widget(
 				{
-					position: coords,
-					message: match.message,
-					title: match.shortMessage,
-					buttons: match.replacements!.slice(0, 3).map(v => v.value),
-					category: match.rule.category.id,
+					match,
+					matchedString,
+					position,
 					onClick: text => {
-						const { from, to } = marker.find() as CodeMirror.MarkerRange;
 						editor.replaceRange(text, from, to);
+
 						marker.clear();
+
+						this.openWidget?.destroy();
+						this.openWidget = undefined;
+					},
+					addToDictionary: text => {
+						const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary') || [];
+						(this.app.vault as any).setConfig('spellcheckDictionary', [...spellcheckDictionary, text]);
+
+						marker.clear();
+
+						this.openWidget?.destroy();
+						this.openWidget = undefined;
+					},
+					ignoreSuggestion: () => {
+						editor.markText(from, to, {
+							clearOnEnter: false,
+							attributes: {
+								isIgnored: 'true',
+							},
+						});
+
+						marker.clear();
+
 						this.openWidget?.destroy();
 						this.openWidget = undefined;
 					},
@@ -127,9 +185,17 @@ export default class LanguageToolPlugin extends Plugin {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (checking) return Boolean(view);
 				if (!view) return;
-				const cm = view!.sourceMode.cmEditor;
-				// eslint-disable-next-line @typescript-eslint/no-floating-promises
-				this.runDetection(cm);
+
+				const cm = view.sourceMode.cmEditor;
+				if (cm.somethingSelected()) {
+					this.runDetection(cm, cm.getCursor('from'), cm.getCursor('to')).catch(e => {
+						console.error(e);
+					});
+				} else {
+					this.runDetection(cm).catch(e => {
+						console.error(e);
+					});
+				}
 			},
 		});
 
@@ -140,12 +206,61 @@ export default class LanguageToolPlugin extends Plugin {
 				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (checking) return Boolean(view) || this.markerMap.size > 0;
 				if (!view) return;
+
 				const cm = view!.sourceMode.cmEditor;
-				// eslint-disable-next-line @typescript-eslint/no-floating-promises
-				this.clearMarks(cm);
+				clearMarks(this.markerMap, cm);
 			},
 		});
 	}
+
+	public onunload() {
+		if (this.openWidget) {
+			this.openWidget.destroy();
+			this.openWidget = undefined;
+		}
+
+		this.app.workspace.iterateCodeMirrors(cm => {
+			clearMarks(this.markerMap, cm);
+			cm.off('change', this.onCodemirrorChange);
+		});
+	}
+
+	private readonly onCodemirrorChange = (instance: CodeMirror.Editor, delta: CodeMirror.EditorChangeLinkedList) => {
+		if (this.openWidget) {
+			this.openWidget.destroy();
+			this.openWidget = undefined;
+		}
+
+		// Clear markers on edit
+		if (this.markerMap.size > 0 && delta.origin && delta.origin[0] === '+') {
+			const marks = instance.findMarksAt(delta.from);
+
+			if (marks.length) {
+				marks.forEach(mark => mark.clear());
+			}
+		}
+
+		if (!this.settings.shouldAutoCheck || !delta.origin) {
+			return;
+		}
+
+		if (delta.origin[0] === '+' || delta.origin === 'paste') {
+			const dirtyLines: number[] = this.dirtyLines.has(instance) ? (this.dirtyLines.get(instance) as number[]) : [];
+
+			delta.text.forEach((_, i) => {
+				const line = delta.from.line + i;
+
+				if (shouldCheckLine(instance, { ...delta.from, line })) {
+					dirtyLines.push(line);
+				}
+			});
+
+			this.dirtyLines.set(instance, dirtyLines);
+
+			this.setStatusBarWorking();
+			this.checkLines(instance);
+		}
+	};
 
 	private async getDetectionResult(text: string): Promise<LanguageToolApi> {
 		const hash = hashString(text);
@@ -195,80 +310,159 @@ export default class LanguageToolPlugin extends Plugin {
 			params.language = this.settings.staticLanguage;
 		}
 
-		const res = await fetch(`${this.settings.serverUrl}/v2/check`, {
-			method: 'POST',
-			body: Object.keys(params)
-				.map(key => {
-					return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
-				})
-				.join('&'),
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-				Accept: 'application/json',
-			},
-		});
+		let res: Response;
+		try {
+			res = await fetch(`${this.settings.serverUrl}/v2/check`, {
+				method: 'POST',
+				body: Object.keys(params)
+					.map(key => {
+						return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
+					})
+					.join('&'),
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					Accept: 'application/json',
+				},
+			});
+		} catch (e) {
+			return Promise.reject(e);
+		}
 
 		if (!res.ok) {
 			new Notice(`request to LanguageTool failed\n${res.statusText}`, 5000);
-			throw new Error(`unexpected status ${res.status}, see network tab`);
+			return Promise.reject(new Error(`unexpected status ${res.status}, see network tab`));
 		}
 
-		const body: LanguageToolApi = await res.json();
+		let body: LanguageToolApi;
+		try {
+			body = await res.json();
+		} catch (e) {
+			return Promise.reject(e);
+		}
+
 		this.hashLru.set(hash, body);
 
 		return body;
 	}
 
-	private clearMarks(editor: CodeMirror.Editor) {
-		editor.getAllMarks().forEach(mark => mark.clear());
-		this.markerMap.clear();
-	}
+	private readonly runAutoDetection = async (instance: CodeMirror.Editor) => {
+		const dirtyLines = this.dirtyLines.get(instance);
 
-	private async runDetection(editor: CodeMirror.Editor) {
-		this.setStatusBarWorking();
-
-		let text: string;
-		const fullText = editor.getValue();
-		let offset = 0;
-		if (editor.somethingSelected()) {
-			text = editor.getSelection();
-			offset = fullText.indexOf(editor.getSelection());
-		} else {
-			text = editor.getValue();
+		if (!dirtyLines || dirtyLines.length === 0) {
+			return this.setStatusBarReady();
 		}
 
+		this.dirtyLines.delete(instance);
+
+		const linesToCheck = dirtyLines.sort((a, b) => {
+			return a - b;
+		});
+
+		const lastLineIndex = linesToCheck[linesToCheck.length - 1];
+		const lastLine = instance.getLine(lastLineIndex);
+
+		const start: CodeMirror.Position = {
+			line: linesToCheck[0],
+			ch: 0,
+		};
+
+		const end: CodeMirror.Position = {
+			line: linesToCheck[linesToCheck.length - 1],
+			ch: lastLine.length,
+		};
+
+		try {
+			await this.runDetection(instance, start, end);
+		} catch (e) {
+			console.error(e);
+			this.setStatusBarReady();
+		}
+	};
+
+	private async runDetection(
+		editor: CodeMirror.Editor,
+		selectionFrom?: CodeMirror.Position,
+		selectionTo?: CodeMirror.Position,
+	) {
+		this.setStatusBarWorking();
+
+		const doc = editor.getDoc();
+		const text = selectionFrom && selectionTo ? editor.getRange(selectionFrom, selectionTo) : editor.getValue();
+		const offset = selectionFrom && selectionTo ? doc.indexFromPos(selectionFrom) : 0;
+
 		const parsedText = Remark.build(text, Remark.defaults);
-		const res = await this.getDetectionResult(JSON.stringify(parsedText));
 
-		this.clearMarks(editor);
+		let res: LanguageToolApi;
+		try {
+			res = await this.getDetectionResult(JSON.stringify(parsedText));
+		} catch (e) {
+			this.setStatusBarReady();
+			return Promise.reject(e);
+		}
 
-		for (const match of res.matches!) {
-			const line = this.getLine(fullText, match.offset + offset);
+		if (selectionFrom && selectionTo) {
+			clearMarks(this.markerMap, editor, selectionFrom, selectionTo);
+		} else {
+			clearMarks(this.markerMap, editor);
+		}
 
-			const marker = editor.markText(
-				{ ch: line.remaining, line: line.line },
-				{ ch: line.remaining + match.length, line: line.line },
-				{
-					className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
-					clearOnEnter: false,
-				},
-			);
+		if (!res.matches) {
+			return this.setStatusBarReady();
+		}
+
+		for (const match of res.matches) {
+			const start = doc.posFromIndex(match.offset + offset);
+			const markers = editor.findMarksAt(start);
+
+			if (markers && markers.length > 0) {
+				continue;
+			}
+
+			const end = doc.posFromIndex(match.offset + offset + match.length);
+
+			if (!shouldCheckLine(editor, start) || !this.matchAllowed(match, editor.getRange(start, end))) {
+				continue;
+			}
+
+			const marker = editor.markText(start, end, {
+				className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
+				clearOnEnter: false,
+			});
+
 			this.markerMap.set(marker, match);
 		}
 
 		this.setStatusBarReady();
 	}
 
-	private getLine(text: string, offset: number): { line: number; remaining: number } {
-		let lineCount = 0;
-		let offsetC = offset;
-		const lines = text.split('\n');
-		for (const line of lines) {
-			lineCount++;
-			if (offsetC - line.length < 1) break;
-			offsetC -= line.length + 1;
+	private matchAllowed(match: MatchesEntity, str: string) {
+		if (match.rule.category.id === 'TYPOS') {
+			const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary');
+
+			if (spellcheckDictionary && spellcheckDictionary.includes(str)) {
+				return false;
+			}
 		}
-		return { line: lineCount - 1, remaining: offsetC };
+
+		return true;
+	}
+
+	private setStatusBarReady() {
+		this.isloading = false;
+		this.statusBarText.empty();
+		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
+			span.createSpan({ cls: 'lt-status-bar-check-icon', text: 'Aa' });
+		});
+	}
+
+	private setStatusBarWorking() {
+		if (this.isloading) return;
+
+		this.isloading = true;
+		this.statusBarText.empty();
+		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
+			setIcon(span, 'sync-small');
+		});
 	}
 
 	public async loadSettings() {
@@ -278,17 +472,4 @@ export default class LanguageToolPlugin extends Plugin {
 	public async saveSettings() {
 		await this.saveData(this.settings);
 	}
-}
-
-function hashString(value: string) {
-	let hash = 0;
-	if (value.length === 0) {
-		return hash;
-	}
-	for (let i = 0; i < value.length; i++) {
-		const char = value.charCodeAt(i);
-		hash = (hash << 5) - hash + char;
-		hash &= hash; // Convert to 32bit integer
-	}
-	return hash;
 }

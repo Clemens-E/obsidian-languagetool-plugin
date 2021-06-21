@@ -1,12 +1,14 @@
+import { setIcon } from 'obsidian';
 import { getIssueTypeClassName } from './helpers';
+import { MatchesEntity } from './LanguageToolTypings';
 
 interface WidgetArgs {
+	match: MatchesEntity;
+	matchedString: string;
 	position: { left: number; bottom: number; top: number };
-	title: string;
-	message: string;
-	buttons: string[];
-	category: string;
 	onClick: (text: string) => void;
+	addToDictionary: (text: string) => void;
+	ignoreSuggestion: () => void;
 }
 
 export class Widget {
@@ -17,27 +19,56 @@ export class Widget {
 	}
 
 	public constructor(args: WidgetArgs, classToUse: string) {
-		this.elem = createDiv({ cls: [classToUse, getIssueTypeClassName(args.category)] }, root => {
+		const message = args.match.message;
+		const title = args.match.shortMessage;
+		const buttons = (args.match.replacements || []).slice(0, 3).map(v => v.value);
+		const category = args.match.rule.category.id;
+
+		this.elem = createDiv({ cls: [classToUse, getIssueTypeClassName(category)] }, root => {
 			root.style.setProperty('left', `${args.position.left}px`);
 			root.style.setProperty('top', `${args.position.bottom}px`);
 
-			if (args.title) {
+			if (title) {
 				root.createSpan({ cls: 'lt-title' }, span => {
-					span.createSpan({ text: args.title });
+					span.createSpan({ text: title });
 				});
 			}
-			root.createSpan({ cls: 'lt-message', text: args.message });
-			root.createDiv({ cls: 'lt-buttoncontainer' }, buttonContainer => {
-				for (const btnText of args.buttons) {
-					buttonContainer.createEl('button', { text: btnText }, button => {
+
+			if (message) {
+				root.createSpan({ cls: 'lt-message', text: message });
+			}
+
+			if (buttons.length) {
+				root.createDiv({ cls: 'lt-buttoncontainer' }, buttonContainer => {
+					for (const btnText of buttons) {
+						buttonContainer.createEl('button', { text: btnText }, button => {
+							button.onclick = () => {
+								args.onClick(btnText);
+							};
+						});
+					}
+				});
+			}
+
+			root.createDiv({ cls: 'lt-ignorecontainer' }, container => {
+				container.createEl('button', { cls: 'lt-ignore-btn' }, button => {
+					if (category === 'TYPOS') {
+						setIcon(button.createSpan(), 'plus-with-circle');
+						button.createSpan({ text: 'Add to personal dictionary' });
 						button.onclick = () => {
-							this.destroy();
-							args.onClick(btnText);
+							args.addToDictionary(args.matchedString);
 						};
-					});
-				}
+					} else {
+						setIcon(button.createSpan(), 'cross');
+						button.createSpan({ text: 'Ignore suggestion' });
+						button.onclick = () => {
+							args.ignoreSuggestion();
+						};
+					}
+				});
 			});
 		});
+
 		document.body.append(this.elem);
 
 		// Ensure widget is on screen

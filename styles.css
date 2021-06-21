@@ -44,7 +44,7 @@
   animation-name: lineInserted;
   font-family: var(--default-font);
   font-size: 0.93rem;
-  padding: 12px;
+  padding: 12px 0 0;
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -65,7 +65,7 @@
 }
 
 .lt-buttoncontainer:not(:empty) {
-  padding-top: 10px;
+  padding: 10px 12px 0;
 }
 
 .lt-buttoncontainer > button {
@@ -80,10 +80,17 @@
   display: block;
   font-weight: 600;
   margin-bottom: 6px;
+  padding: 0 12px;
 }
 
 .lt-message {
+  padding: 0 12px;
   display: block;
+}
+
+.lt-ignorecontainer {
+  padding-top: 10px;
+  display: flex;
 }
 
 .lt-status-bar-btn {
@@ -94,8 +101,30 @@
   align-items: center;
 }
 
-.lt-status-bar-btn > span {
-  margin-left: 4px;
+.lt-status-bar-check-icon {
+  display: block;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.lt-ignore-btn {
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  width: 100%;
+  text-align: left;
+  border-radius: 0;
+  align-items: center;
+  line-height: 1;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.lt-ignore-btn > span {
+  display: flex;
+}
+
+.lt-ignore-btn > span:last-child {
+  margin-left: 5px;
 }
 
 .lt-minor .lt-title > span {
@@ -123,6 +152,6 @@
   }
 
   to {
-    transform: rotate(360deg);
+    transform: rotate(-360deg);
   }
 }
