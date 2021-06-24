@@ -1,7 +1,7 @@
 import * as Remark from 'annotatedtext-remark';
 import { debounce, Debouncer, MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
 import QuickLRU from 'quick-lru';
-import { clearMarks, getIssueTypeClassName, getRuleCategories, hashString, shouldCheckLine } from './helpers';
+import { clearMarks, getIssueTypeClassName, getRuleCategories, hashString, shouldCheckTextAtPos } from './helpers';
 import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
 import { Widget } from './Widget';
@@ -259,7 +259,7 @@ export default class LanguageToolPlugin extends Plugin {
 			delta.text.forEach((_, i) => {
 				const line = delta.from.line + i;
 
-				if (shouldCheckLine(instance, { ...delta.from, line })) {
+				if (shouldCheckTextAtPos(instance, { ...delta.from, line })) {
 					dirtyLines.push(line);
 				}
 			});
@@ -399,7 +399,17 @@ export default class LanguageToolPlugin extends Plugin {
 		const text = selectionFrom && selectionTo ? editor.getRange(selectionFrom, selectionTo) : editor.getValue();
 		const offset = selectionFrom && selectionTo ? doc.indexFromPos(selectionFrom) : 0;
 
-		const parsedText = Remark.build(text, Remark.defaults);
+		const parsedText = Remark.build(text, {
+			...Remark.defaults,
+			interpretmarkup(text = ''): string {
+				// Don't collapse inline code
+				if (/^`[^`]+`$/.test(text)) {
+					return text;
+				}
+
+				return '\n'.repeat((text.match(/\n/g) || []).length);
+			},
+		});
 
 		let res: LanguageToolApi;
 		try {
@@ -429,7 +439,11 @@ export default class LanguageToolPlugin extends Plugin {
 
 			const end = doc.posFromIndex(match.offset + offset + match.length);
 
-			if (!shouldCheckLine(editor, start) || !this.matchAllowed(editor, match, start, end)) {
+			if (
+				!shouldCheckTextAtPos(editor, start) ||
+				!shouldCheckTextAtPos(editor, end) ||
+				!this.matchAllowed(editor, match, start, end)
+			) {
 				continue;
 			}
 

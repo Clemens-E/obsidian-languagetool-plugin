@@ -16,7 +16,7 @@ export function hashString(value: string) {
 
 const ignoreListRegEx = /frontmatter|code|math/;
 
-export function shouldCheckLine(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
+export function shouldCheckTextAtPos(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
 	// Empty line
 	if (!instance.getLine(pos.line)) {
 		return false;
