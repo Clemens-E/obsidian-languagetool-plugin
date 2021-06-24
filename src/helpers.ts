@@ -14,7 +14,7 @@ export function hashString(value: string) {
 	return hash;
 }
 
-const ignoreListRegEx = /frontmatter|code/;
+const ignoreListRegEx = /frontmatter|code|math/;
 
 export function shouldCheckLine(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
 	// Empty line
