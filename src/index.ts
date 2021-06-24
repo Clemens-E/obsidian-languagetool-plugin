@@ -200,6 +200,15 @@ export default class LanguageToolPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'ltautocheck-text',
+			name: 'Toggle Automatic Checking',
+			callback: async () => {
+				this.settings.shouldAutoCheck = !this.settings.shouldAutoCheck;
+				await this.saveSettings();
+			},
+		});
+
+		this.addCommand({
 			id: 'ltclear',
 			name: 'Clear Suggestions',
 			checkCallback: checking => {
