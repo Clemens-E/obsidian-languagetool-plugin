@@ -429,7 +429,7 @@ export default class LanguageToolPlugin extends Plugin {
 
 			const end = doc.posFromIndex(match.offset + offset + match.length);
 
-			if (!shouldCheckLine(editor, start) || !this.matchAllowed(match, editor.getRange(start, end))) {
+			if (!shouldCheckLine(editor, start) || !this.matchAllowed(editor, match, start, end)) {
 				continue;
 			}
 
@@ -444,11 +444,28 @@ export default class LanguageToolPlugin extends Plugin {
 		this.setStatusBarReady();
 	}
 
-	private matchAllowed(match: MatchesEntity, str: string) {
+	private matchAllowed(
+		editor: CodeMirror.Editor,
+		match: MatchesEntity,
+		start: CodeMirror.Position,
+		end: CodeMirror.Position,
+	) {
+		const str = editor.getRange(start, end);
+
+		// Don't show spelling errors for entries in the user dictionary
 		if (match.rule.category.id === 'TYPOS') {
 			const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary');
 
 			if (spellcheckDictionary && spellcheckDictionary.includes(str)) {
+				return false;
+			}
+		}
+
+		const lineTokens = editor.getLineTokens(start.line);
+
+		// Don't show whitewpace warnings in tables
+		if (lineTokens.length && lineTokens[0].type?.includes('table')) {
+			if (match.rule.id === 'WHITESPACE_RULE') {
 				return false;
 			}
 		}
