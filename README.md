@@ -2,7 +2,7 @@
 
 This is a plugin for [Obsidian.md](https://obsidian.md) that integrates [LanguageTool](https://languagetool.org/).
 
-Note: if you are worried about the privacy of your notes you should selfhost languagetool, wether it be locally on your pc or on a server
+Note: if you are worried about the privacy of your notes you should selfhost languagetool, whether it be locally on your pc or on a server
 [Docker Image](https://hub.docker.com/r/erikvl87/languagetool)
 
 If you decide to self host the service, you need to change the link in the configuration accordingly.
