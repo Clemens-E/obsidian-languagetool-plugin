@@ -14,7 +14,7 @@ export function hashString(value: string) {
 	return hash;
 }
 
-const ignoreListRegEx = /frontmatter|code|math/;
+const ignoreListRegEx = /frontmatter|code|math|templater|blockid/;
 
 export function shouldCheckTextAtPos(instance: CodeMirror.Editor, pos: CodeMirror.Position) {
 	// Empty line

@@ -334,6 +334,10 @@ export default class LanguageToolPlugin extends Plugin {
 				},
 			});
 		} catch (e) {
+			new Notice(
+				`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`,
+				5000,
+			);
 			return Promise.reject(e);
 		}
 
@@ -346,6 +350,7 @@ export default class LanguageToolPlugin extends Plugin {
 		try {
 			body = await res.json();
 		} catch (e) {
+			new Notice(`Error processing response from LanguageTool server`, 5000);
 			return Promise.reject(e);
 		}
 
