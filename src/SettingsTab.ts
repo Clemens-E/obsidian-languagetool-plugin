@@ -11,23 +11,6 @@ export interface LanguageToolPluginSettings {
 	staticLanguage?: string;
 
 	pickyMode: boolean;
-	ruleCasing: boolean;
-	ruleColloquialisms: boolean;
-	ruleCompounding: boolean;
-	ruleConfusedWords: boolean;
-	ruleFalseFriends: boolean;
-	ruleGenderNeutrality: boolean;
-	ruleGrammar: boolean;
-	ruleMisc: boolean;
-	rulePlainEnglish: boolean;
-	rulePunctuation: boolean;
-	ruleRedundancy: boolean;
-	ruleRegionalisms: boolean;
-	ruleRepetitions: boolean;
-	ruleSemantics: boolean;
-	ruleStyle: boolean;
-	ruleTypography: boolean;
-	ruleTypos: boolean;
 
 	ruleOtherCategories?: string;
 	ruleOtherRules?: string;
@@ -40,23 +23,6 @@ export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 	shouldAutoCheck: false,
 
 	pickyMode: false,
-	ruleGrammar: true,
-	ruleGenderNeutrality: true,
-	ruleColloquialisms: true,
-	ruleStyle: true,
-	ruleRegionalisms: true,
-	ruleCasing: true,
-	ruleCompounding: true,
-	ruleConfusedWords: true,
-	ruleFalseFriends: true,
-	ruleMisc: true,
-	rulePlainEnglish: true,
-	ruleRedundancy: true,
-	ruleRepetitions: true,
-	ruleSemantics: true,
-	rulePunctuation: true,
-	ruleTypos: true,
-	ruleTypography: true,
 };
 
 export class LanguageToolSettingsTab extends PluginSettingTab {
@@ -160,160 +126,6 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName('Casing')
-			.setDesc('Rules about detecting uppercase words where lowercase is required and vice versa')
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleCasing).onChange(async value => {
-					this.plugin.settings.ruleCasing = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Colloquialisms')
-			.setDesc('Colloquial style')
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleColloquialisms).onChange(async value => {
-					this.plugin.settings.ruleColloquialisms = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Compounding')
-			.setDesc('Rules about spelling terms as one word or as as separate words')
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleCompounding).onChange(async value => {
-					this.plugin.settings.ruleCompounding = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Confused Words')
-			.setDesc(`Words that are easily confused, like 'there' and 'their' in English.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleConfusedWords).onChange(async value => {
-					this.plugin.settings.ruleConfusedWords = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('False Friends')
-			.setDesc(
-				'False friends: words easily confused by language learners because a similar word exists in their native language',
-			)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleFalseFriends).onChange(async value => {
-					this.plugin.settings.ruleFalseFriends = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl).setName('Gender Neutrality').addToggle(component => {
-			component.setValue(this.plugin.settings.ruleGenderNeutrality).onChange(async value => {
-				this.plugin.settings.ruleGenderNeutrality = value;
-				await this.plugin.saveSettings();
-			});
-		});
-
-		new Setting(containerEl).setName('Grammar').addToggle(component => {
-			component.setValue(this.plugin.settings.ruleGrammar).onChange(async value => {
-				this.plugin.settings.ruleGrammar = value;
-				await this.plugin.saveSettings();
-			});
-		});
-
-		new Setting(containerEl)
-			.setName('Misc')
-			.setDesc(`Miscellaneous rules that don't fit elsewhere.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleMisc).onChange(async value => {
-					this.plugin.settings.ruleMisc = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl).setName('Plain English').addToggle(component => {
-			component.setValue(this.plugin.settings.rulePlainEnglish).onChange(async value => {
-				this.plugin.settings.rulePlainEnglish = value;
-				await this.plugin.saveSettings();
-			});
-		});
-
-		new Setting(containerEl).setName('Punctuation').addToggle(component => {
-			component.setValue(this.plugin.settings.rulePunctuation).onChange(async value => {
-				this.plugin.settings.rulePunctuation = value;
-				await this.plugin.saveSettings();
-			});
-		});
-
-		new Setting(containerEl).setName('Redundancy').addToggle(component => {
-			component.setValue(this.plugin.settings.ruleRedundancy).onChange(async value => {
-				this.plugin.settings.ruleRedundancy = value;
-				await this.plugin.saveSettings();
-			});
-		});
-
-		new Setting(containerEl)
-			.setName('Regionalisms')
-			.setDesc(`Regionalisms: words used only in another language variant or used with different meanings.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleRegionalisms).onChange(async value => {
-					this.plugin.settings.ruleRegionalisms = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl).setName('Repetitions').addToggle(component => {
-			component.setValue(this.plugin.settings.ruleRepetitions).onChange(async value => {
-				this.plugin.settings.ruleRepetitions = value;
-				await this.plugin.saveSettings();
-			});
-		});
-
-		new Setting(containerEl)
-			.setName('Semantics')
-			.setDesc(`Logic, content, and consistency problems.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleSemantics).onChange(async value => {
-					this.plugin.settings.ruleSemantics = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Style')
-			.setDesc(`General style issues not covered by other categories, like overly verbose wording.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleStyle).onChange(async value => {
-					this.plugin.settings.ruleStyle = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Typography')
-			.setDesc(`Problems like incorrectly used dash or quote characters.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleTypography).onChange(async value => {
-					this.plugin.settings.ruleTypography = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
-			.setName('Typos')
-			.setDesc(`Spelling issues.`)
-			.addToggle(component => {
-				component.setValue(this.plugin.settings.ruleTypos).onChange(async value => {
-					this.plugin.settings.ruleTypos = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		new Setting(containerEl)
 			.setName('Other rule categories')
 			.setDesc('Enter a comma-separated list of categories')
 			.addText(text =>
@@ -384,6 +196,55 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					{
 						text: 'Click here for a list of rules and categories',
 						href: 'https://community.languagetool.org/rule/list',
+					},
+					a => {
+						a.setAttr('target', '_blank');
+					},
+				);
+			});
+
+		new Setting(containerEl)
+			.setName('API Username')
+			.setDesc('Enter a username/email for API Access')
+			.addText(text =>
+				text
+					.setPlaceholder('peterlustig@gmail.com')
+					.setValue(this.plugin.settings.username || '')
+					.onChange(async value => {
+						this.plugin.settings.username = value.replace(/\s+/g, '');
+						await this.plugin.saveSettings();
+					}),
+			)
+			.then(setting => {
+				setting.descEl.createEl('br');
+				setting.descEl.createEl(
+					'a',
+					{
+						text: 'Click here for information about Premium Access',
+						href: 'https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts',
+					},
+					a => {
+						a.setAttr('target', '_blank');
+					},
+				);
+			});
+
+		new Setting(containerEl)
+			.setName('API Key')
+			.setDesc('Enter an API Key')
+			.addText(text =>
+				text.setValue(this.plugin.settings.apikey || '').onChange(async value => {
+					this.plugin.settings.apikey = value.replace(/\s+/g, '');
+					await this.plugin.saveSettings();
+				}),
+			)
+			.then(setting => {
+				setting.descEl.createEl('br');
+				setting.descEl.createEl(
+					'a',
+					{
+						text: 'Click here for information about Premium Access',
+						href: 'https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts',
 					},
 					a => {
 						a.setAttr('target', '_blank');

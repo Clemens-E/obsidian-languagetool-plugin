@@ -482,7 +482,7 @@ export default class LanguageToolPlugin extends Plugin {
 
 		const lineTokens = editor.getLineTokens(start.line);
 
-		// Don't show whitewpace warnings in tables
+		// Don't show whitespace warnings in tables
 		if (lineTokens.length && lineTokens[0].type?.includes('table')) {
 			if (match.rule.id === 'WHITESPACE_RULE') {
 				return false;

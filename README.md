@@ -14,14 +14,18 @@ If you decide to self host the service, you need to change the link in the confi
 3. Use your shortcut
 4. Press on an underlined Word to open the popover and see the explanation and possible fixes
 
-## WIP
+## Premium Accounts
+*As far as I know*, it is not possible to use the premium features.
+This is not something that can be implemented into this plugin.
+For you to use the premium features, you need an API Key to the Premium API\
+See details about that:
+- https://languagetool.org/editor/settings/api
+- https://languagetool.org/proofreading-api
+- https://github.com/Clemens-E/obsidian-languagetool-plugin/issues/8#issuecomment-841726725
 
-This Plugin is still very young with not too much time spent on it, so there are a few (known?) bugs, you can help by reporting them on discord/issue tracker and maybe even contributing yourself.
+[a user commented](https://github.com/Clemens-E/obsidian-languagetool-plugin/issues/32#issuecomment-901370676) thats its possible to receive API access by requesting it,
+but I dont know if this is really possible. I dont have Language Tool Premium
 
-### todo:
-
-- differ between rules (yellow, red and purple markers like languagetool)
-- allow users to ignore rules
 
 ## Manually installing the plugin
 
