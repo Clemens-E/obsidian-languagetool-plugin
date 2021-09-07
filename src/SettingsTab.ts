@@ -127,7 +127,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 				});
 			});
 		new Setting(containerEl)
-			.setName('Static Langauge')
+			.setName('Static Language')
 			.setDesc(
 				'Set a static language that will always be used (LanguageTool tries to auto detect the language, this is usually not necessary)',
 			)
