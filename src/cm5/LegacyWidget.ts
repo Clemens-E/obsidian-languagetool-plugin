@@ -1,8 +1,8 @@
 import { setIcon } from 'obsidian';
-import { getIssueTypeClassName } from './helpers';
-import { MatchesEntity } from './LanguageToolTypings';
+import { getIssueTypeClassName } from '../helpers';
+import { MatchesEntity } from '../LanguageToolTypings';
 
-interface WidgetArgs {
+interface LegacyWidgetArgs {
 	match: MatchesEntity;
 	matchedString: string;
 	position: { left: number; bottom: number; top: number };
@@ -11,14 +11,14 @@ interface WidgetArgs {
 	ignoreSuggestion: () => void;
 }
 
-export class Widget {
+export class LegacyWidget {
 	private readonly elem: HTMLElement;
 
 	public get element() {
 		return this.elem;
 	}
 
-	public constructor(args: WidgetArgs, classToUse: string) {
+	public constructor(args: LegacyWidgetArgs, classToUse: string) {
 		const message = args.match.message;
 		const title = args.match.shortMessage;
 		const buttons = (args.match.replacements || []).slice(0, 3).map(v => v.value);

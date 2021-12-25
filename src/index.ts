@@ -1,35 +1,31 @@
-import * as Remark from 'annotatedtext-remark';
-import { debounce, Debouncer, MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
+import { MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
+import { EditorView } from '@codemirror/view';
+import { StateEffect } from '@codemirror/state';
 import QuickLRU from 'quick-lru';
-import { clearMarks, getIssueTypeClassName, getRuleCategories, hashString, shouldCheckTextAtPos } from './helpers';
-import { LanguageToolApi, MatchesEntity } from './LanguageToolTypings';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
-import { Widget } from './Widget';
+import { LanguageToolApi } from './LanguageToolTypings';
+import { hashString } from './helpers';
+import { getDetectionResult } from './api';
+import { buildUnderlineExtension } from './cm6/underlineExtension';
+import { addUnderline, clearUnderlines, clearUnderlinesInRange } from './cm6/underlineStateField';
+import LegacyLanguageToolPlugin from './cm5/LegacyPlugin';
+import { legacyClearMarks } from './cm5/helpers';
 
 export default class LanguageToolPlugin extends Plugin {
 	public settings: LanguageToolPluginSettings;
-	private openWidget: Widget | undefined;
 	private statusBarText: HTMLElement;
-	private markerMap: Map<CodeMirror.TextMarker, MatchesEntity>;
-	private hashLru: QuickLRU<number, LanguageToolApi>;
 
-	private dirtyLines: WeakMap<CodeMirror.Editor, number[]>;
-	private checkLines: Debouncer<CodeMirror.Editor[]>;
+	private hashLru: QuickLRU<number, LanguageToolApi>;
 	private isloading = false;
 
-	public async onload() {
-		this.markerMap = new Map<CodeMirror.TextMarker, MatchesEntity>();
-		this.hashLru = new QuickLRU<number, LanguageToolApi>({
-			maxSize: 10,
-		});
-		this.dirtyLines = new WeakMap();
-		this.checkLines = debounce(
-			this.runAutoDetection,
-			// The API has a rate limit of 1 request every 3 seconds
-			3000,
-			true,
-		);
+	// Legacy editor
+	private isLegacyEditor: boolean;
+	private legacyPlugin: LegacyLanguageToolPlugin;
 
+	public async onload() {
+		this.isLegacyEditor = Boolean((this.app.vault as any).getConfig('legacyEditor'));
+
+		// Settings
 		await this.loadSettings();
 
 		if (this.settings.serverUrl.includes('/v2/check')) {
@@ -47,152 +43,55 @@ export default class LanguageToolPlugin extends Plugin {
 
 		this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
+		// Status bar
 		this.app.workspace.onLayoutReady(() => {
 			this.statusBarText = this.addStatusBarItem();
 			this.setStatusBarReady();
-			this.registerDomEvent(this.statusBarText, 'click', async () => {
-				const statusBarRect = this.statusBarText.parentElement?.getBoundingClientRect();
-				const statusBarIconRect = this.statusBarText.getBoundingClientRect();
+			this.registerDomEvent(this.statusBarText, 'click', this.handleStatusBarClick);
+		});
 
-				new Menu(this.app)
-					.addItem(item => {
-						item.setTitle('Check current document');
-						item.setIcon('checkbox-glyph');
-						item.onClick(async () => {
-							const activeLeaf = this.app.workspace.activeLeaf;
-							if (activeLeaf.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
-								try {
-									await this.runDetection(activeLeaf.view.sourceMode.cmEditor);
-								} catch (e) {
-									console.error(e);
-								}
-							}
-						});
-					})
-					.addItem(item => {
-						item.setTitle(this.settings.shouldAutoCheck ? 'Disable automatic checking' : 'Enable automatic checking');
-						item.setIcon('uppercase-lowercase-a');
-						item.onClick(async () => {
-							this.settings.shouldAutoCheck = !this.settings.shouldAutoCheck;
-							await this.saveSettings();
-						});
-					})
-					.addItem(item => {
-						item.setTitle('Clear suggestions');
-						item.setIcon('reset');
-						item.onClick(() => {
-							const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-							if (!view) return;
-
-							const cm = view!.sourceMode.cmEditor;
-							clearMarks(this.markerMap, cm);
-						});
-					})
-					.showAtPosition({
-						x: statusBarIconRect.right + 5,
-						y: (statusBarRect?.top || 0) - 5,
-					});
+		// Editor functionality
+		if (this.isLegacyEditor) {
+			this.legacyPlugin = new LegacyLanguageToolPlugin(this);
+			await this.legacyPlugin.onload();
+		} else {
+			this.hashLru = new QuickLRU<number, LanguageToolApi>({
+				maxSize: 10,
 			});
-		});
+			this.registerEditorExtension(buildUnderlineExtension(this));
+		}
 
-		this.registerCodeMirror(cm => {
-			cm.on('change', this.onCodemirrorChange);
-		});
+		// Commands
+		this.registerCommands();
+	}
 
-		// Using the click event won't trigger the widget consistently, so use pointerup instead
-		this.registerDomEvent(document, 'pointerup', e => {
-			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if (!view) return;
+	public onunload() {
+		if (this.isLegacyEditor) {
+			this.legacyPlugin.onunload();
+		}
 
-			if (e.target === this.openWidget?.element || this.openWidget?.element.contains(e.target as ChildNode)) {
-				return;
-			}
+		this.hashLru.clear();
+	}
 
-			// Destroy any open widgets if we're not clicking in one
-			if (this.openWidget) {
-				this.openWidget.destroy();
-				this.openWidget = undefined;
-			}
-
-			// Don't open if we have no marks or aren't clicking on a mark
-			if (this.markerMap.size === 0 || (e.target instanceof HTMLElement && !e.target.hasClass('lt-underline'))) {
-				return;
-			}
-
-			const editor = view.sourceMode.cmEditor;
-
-			// return if element is not in the editor
-			if (!editor.getWrapperElement().contains(e.target as ChildNode)) return;
-
-			const lineCh = editor.coordsChar({ left: e.clientX, top: e.clientY });
-			const markers = editor.findMarksAt(lineCh);
-
-			if (markers.length === 0) return;
-
-			// assume there is only a single marker
-			const marker = markers[0];
-			const match = this.markerMap.get(marker);
-			if (!match) return;
-
-			const { from, to } = marker.find() as CodeMirror.MarkerRange;
-			const position = editor.cursorCoords(from);
-			const matchedString = editor.getRange(from, to);
-
-			this.openWidget = new Widget(
-				{
-					match,
-					matchedString,
-					position,
-					onClick: text => {
-						editor.replaceRange(text, from, to);
-
-						marker.clear();
-
-						this.openWidget?.destroy();
-						this.openWidget = undefined;
-					},
-					addToDictionary: text => {
-						const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary') || [];
-						(this.app.vault as any).setConfig('spellcheckDictionary', [...spellcheckDictionary, text]);
-
-						marker.clear();
-
-						this.openWidget?.destroy();
-						this.openWidget = undefined;
-					},
-					ignoreSuggestion: () => {
-						editor.markText(from, to, {
-							clearOnEnter: false,
-							attributes: {
-								isIgnored: 'true',
-							},
-						});
-
-						marker.clear();
-
-						this.openWidget?.destroy();
-						this.openWidget = undefined;
-					},
-				},
-				this.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container',
-			);
-		});
-
+	private registerCommands() {
 		this.addCommand({
 			id: 'ltcheck-text',
 			name: 'Check Text',
-			checkCallback: checking => {
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (checking) return Boolean(view);
-				if (!view) return;
+			editorCallback: (editor, view) => {
+				if (this.isLegacyEditor) {
+					const cm = (editor as any).cm as CodeMirror.Editor;
 
-				const cm = view.sourceMode.cmEditor;
-				if (cm.somethingSelected()) {
-					this.runDetection(cm, cm.getCursor('from'), cm.getCursor('to')).catch(e => {
-						console.error(e);
-					});
+					if (editor.somethingSelected()) {
+						this.legacyPlugin.runDetection(cm, cm.getCursor('from'), cm.getCursor('to')).catch(e => {
+							console.error(e);
+						});
+					} else {
+						this.legacyPlugin.runDetection(cm).catch(e => {
+							console.error(e);
+						});
+					}
 				} else {
-					this.runDetection(cm).catch(e => {
+					this.runDetection((editor as any).cm as EditorView, view).catch(e => {
 						console.error(e);
 					});
 				}
@@ -211,288 +110,23 @@ export default class LanguageToolPlugin extends Plugin {
 		this.addCommand({
 			id: 'ltclear',
 			name: 'Clear Suggestions',
-			checkCallback: checking => {
-				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (checking) return Boolean(view) || this.markerMap.size > 0;
-				if (!view) return;
-
-				const cm = view!.sourceMode.cmEditor;
-				clearMarks(this.markerMap, cm);
+			editorCallback: editor => {
+				if (this.isLegacyEditor) {
+					if (this.legacyPlugin.markerMap.size > 0) {
+						const cm = (editor as any).cm as CodeMirror.Editor;
+						legacyClearMarks(this.legacyPlugin.markerMap, cm);
+					}
+				} else {
+					const cm = (editor as any).cm as EditorView;
+					cm.dispatch({
+						effects: [clearUnderlines.of(null)],
+					});
+				}
 			},
 		});
 	}
 
-	public onunload() {
-		if (this.openWidget) {
-			this.openWidget.destroy();
-			this.openWidget = undefined;
-		}
-
-		this.app.workspace.iterateCodeMirrors(cm => {
-			clearMarks(this.markerMap, cm);
-			cm.off('change', this.onCodemirrorChange);
-		});
-	}
-
-	private readonly onCodemirrorChange = (instance: CodeMirror.Editor, delta: CodeMirror.EditorChangeLinkedList) => {
-		if (this.openWidget) {
-			this.openWidget.destroy();
-			this.openWidget = undefined;
-		}
-
-		// Clear markers on edit
-		if (this.markerMap.size > 0 && delta.origin && delta.origin[0] === '+') {
-			const marks = instance.findMarksAt(delta.from);
-
-			if (marks.length) {
-				marks.forEach(mark => mark.clear());
-			}
-		}
-
-		if (!this.settings.shouldAutoCheck || !delta.origin) {
-			return;
-		}
-
-		if (delta.origin[0] === '+' || delta.origin === 'paste') {
-			const dirtyLines: number[] = this.dirtyLines.has(instance) ? (this.dirtyLines.get(instance) as number[]) : [];
-
-			delta.text.forEach((_, i) => {
-				const line = delta.from.line + i;
-
-				if (shouldCheckTextAtPos(instance, { ...delta.from, line })) {
-					dirtyLines.push(line);
-				}
-			});
-
-			this.dirtyLines.set(instance, dirtyLines);
-
-			this.setStatusBarWorking();
-			this.checkLines(instance);
-		}
-	};
-
-	private async getDetectionResult(text: string): Promise<LanguageToolApi> {
-		const hash = hashString(text);
-		if (this.hashLru.has(hash)) {
-			return this.hashLru.get(hash)!;
-		}
-
-		const { enabledCategories, disabledCategories } = getRuleCategories(this.settings);
-
-		const params: { [key: string]: string } = {
-			data: text,
-			language: 'auto',
-			enabledOnly: 'false',
-			level: this.settings.pickyMode ? 'picky' : 'default',
-		};
-
-		if (enabledCategories.length) {
-			params.enabledCategories = enabledCategories.join(',');
-		}
-
-		if (disabledCategories.length) {
-			params.disabledCategories = disabledCategories.join(',');
-		}
-
-		if (this.settings.ruleOtherRules) {
-			params.enabledRules = this.settings.ruleOtherRules;
-		}
-
-		if (this.settings.ruleOtherDisabledRules) {
-			params.disabledRules = this.settings.ruleOtherDisabledRules;
-		}
-
-		if (
-			this.settings.apikey &&
-			this.settings.username &&
-			this.settings.apikey.length > 1 &&
-			this.settings.username.length > 1
-		) {
-			params.username = this.settings.username;
-			params.apiKey = this.settings.apikey;
-		}
-		if (
-			this.settings.staticLanguage &&
-			this.settings.staticLanguage.length > 0 &&
-			this.settings.staticLanguage !== 'auto'
-		) {
-			params.language = this.settings.staticLanguage;
-		}
-
-		let res: Response;
-		try {
-			res = await fetch(`${this.settings.serverUrl}/v2/check`, {
-				method: 'POST',
-				body: Object.keys(params)
-					.map(key => {
-						return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
-					})
-					.join('&'),
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-					Accept: 'application/json',
-				},
-			});
-		} catch (e) {
-			new Notice(
-				`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`,
-				5000,
-			);
-			return Promise.reject(e);
-		}
-
-		if (!res.ok) {
-			new Notice(`request to LanguageTool failed\n${res.statusText}`, 5000);
-			return Promise.reject(new Error(`unexpected status ${res.status}, see network tab`));
-		}
-
-		let body: LanguageToolApi;
-		try {
-			body = await res.json();
-		} catch (e) {
-			new Notice(`Error processing response from LanguageTool server`, 5000);
-			return Promise.reject(e);
-		}
-
-		this.hashLru.set(hash, body);
-
-		return body;
-	}
-
-	private readonly runAutoDetection = async (instance: CodeMirror.Editor) => {
-		const dirtyLines = this.dirtyLines.get(instance);
-
-		if (!dirtyLines || dirtyLines.length === 0) {
-			return this.setStatusBarReady();
-		}
-
-		this.dirtyLines.delete(instance);
-
-		const linesToCheck = dirtyLines.sort((a, b) => {
-			return a - b;
-		});
-
-		const lastLineIndex = linesToCheck[linesToCheck.length - 1];
-		const lastLine = instance.getLine(lastLineIndex);
-
-		const start: CodeMirror.Position = {
-			line: linesToCheck[0],
-			ch: 0,
-		};
-
-		const end: CodeMirror.Position = {
-			line: linesToCheck[linesToCheck.length - 1],
-			ch: lastLine.length,
-		};
-
-		try {
-			await this.runDetection(instance, start, end);
-		} catch (e) {
-			console.error(e);
-			this.setStatusBarReady();
-		}
-	};
-
-	private async runDetection(
-		editor: CodeMirror.Editor,
-		selectionFrom?: CodeMirror.Position,
-		selectionTo?: CodeMirror.Position,
-	) {
-		this.setStatusBarWorking();
-
-		const doc = editor.getDoc();
-		const text = selectionFrom && selectionTo ? editor.getRange(selectionFrom, selectionTo) : editor.getValue();
-		const offset = selectionFrom && selectionTo ? doc.indexFromPos(selectionFrom) : 0;
-
-		const parsedText = Remark.build(text, {
-			...Remark.defaults,
-			interpretmarkup(text = ''): string {
-				// Don't collapse inline code
-				if (/^`[^`]+`$/.test(text)) {
-					return text;
-				}
-
-				return '\n'.repeat((text.match(/\n/g) || []).length);
-			},
-		});
-
-		let res: LanguageToolApi;
-		try {
-			res = await this.getDetectionResult(JSON.stringify(parsedText));
-		} catch (e) {
-			this.setStatusBarReady();
-			return Promise.reject(e);
-		}
-
-		if (selectionFrom && selectionTo) {
-			clearMarks(this.markerMap, editor, selectionFrom, selectionTo);
-		} else {
-			clearMarks(this.markerMap, editor);
-		}
-
-		if (!res.matches) {
-			return this.setStatusBarReady();
-		}
-
-		for (const match of res.matches) {
-			const start = doc.posFromIndex(match.offset + offset);
-			const markers = editor.findMarksAt(start);
-
-			if (markers && markers.length > 0) {
-				continue;
-			}
-
-			const end = doc.posFromIndex(match.offset + offset + match.length);
-
-			if (
-				!shouldCheckTextAtPos(editor, start) ||
-				!shouldCheckTextAtPos(editor, end) ||
-				!this.matchAllowed(editor, match, start, end)
-			) {
-				continue;
-			}
-
-			const marker = editor.markText(start, end, {
-				className: `lt-underline ${getIssueTypeClassName(match.rule.category.id)}`,
-				clearOnEnter: false,
-			});
-
-			this.markerMap.set(marker, match);
-		}
-
-		this.setStatusBarReady();
-	}
-
-	private matchAllowed(
-		editor: CodeMirror.Editor,
-		match: MatchesEntity,
-		start: CodeMirror.Position,
-		end: CodeMirror.Position,
-	) {
-		const str = editor.getRange(start, end);
-
-		// Don't show spelling errors for entries in the user dictionary
-		if (match.rule.category.id === 'TYPOS') {
-			const spellcheckDictionary: string[] = (this.app.vault as any).getConfig('spellcheckDictionary');
-
-			if (spellcheckDictionary && spellcheckDictionary.includes(str)) {
-				return false;
-			}
-		}
-
-		const lineTokens = editor.getLineTokens(start.line);
-
-		// Don't show whitespace warnings in tables
-		if (lineTokens.length && lineTokens[0].type?.includes('table')) {
-			if (match.rule.id === 'WHITESPACE_RULE') {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	private setStatusBarReady() {
+	public setStatusBarReady() {
 		this.isloading = false;
 		this.statusBarText.empty();
 		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
@@ -500,7 +134,7 @@ export default class LanguageToolPlugin extends Plugin {
 		});
 	}
 
-	private setStatusBarWorking() {
+	public setStatusBarWorking() {
 		if (this.isloading) return;
 
 		this.isloading = true;
@@ -508,6 +142,137 @@ export default class LanguageToolPlugin extends Plugin {
 		this.statusBarText.createSpan({ cls: ['lt-status-bar-btn', 'lt-loading'] }, span => {
 			setIcon(span, 'sync-small');
 		});
+	}
+
+	private readonly handleStatusBarClick = () => {
+		const statusBarRect = this.statusBarText.parentElement?.getBoundingClientRect();
+		const statusBarIconRect = this.statusBarText.getBoundingClientRect();
+
+		new Menu(this.app)
+			.addItem(item => {
+				item.setTitle('Check current document');
+				item.setIcon('checkbox-glyph');
+				item.onClick(async () => {
+					const activeLeaf = this.app.workspace.activeLeaf;
+					if (activeLeaf?.view instanceof MarkdownView && activeLeaf.view.getMode() === 'source') {
+						try {
+							if (this.isLegacyEditor) {
+								await this.legacyPlugin.runDetection((activeLeaf.view.editor as any).cm);
+							} else {
+								await this.runDetection((activeLeaf.view.editor as any).cm, activeLeaf.view);
+							}
+						} catch (e) {
+							console.error(e);
+						}
+					}
+				});
+			})
+			.addItem(item => {
+				item.setTitle(this.settings.shouldAutoCheck ? 'Disable automatic checking' : 'Enable automatic checking');
+				item.setIcon('uppercase-lowercase-a');
+				item.onClick(async () => {
+					this.settings.shouldAutoCheck = !this.settings.shouldAutoCheck;
+					await this.saveSettings();
+				});
+			})
+			.addItem(item => {
+				item.setTitle('Clear suggestions');
+				item.setIcon('reset');
+				item.onClick(() => {
+					const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (!view) return;
+
+					if (this.isLegacyEditor) {
+						const cm = (view.editor as any).cm as CodeMirror.Editor;
+						legacyClearMarks(this.legacyPlugin.markerMap, cm);
+					} else {
+						const cm = (view.editor as any).cm as EditorView;
+						cm.dispatch({
+							effects: [clearUnderlines.of(null)],
+						});
+					}
+				});
+			})
+			.showAtPosition({
+				x: statusBarIconRect.right + 5,
+				y: (statusBarRect?.top || 0) - 5,
+			});
+	};
+
+	public async runDetection(editor: EditorView, view: MarkdownView, from?: number, to?: number) {
+		this.setStatusBarWorking();
+
+		const selection = editor.state.selection.main;
+
+		let text = view.data;
+		let offset = 0;
+		let isRange = false;
+		let rangeFrom = 0;
+		let rangeTo = 0;
+
+		if (from === undefined && selection && selection.from !== selection.to) {
+			from = selection.from;
+			to = selection.to;
+		}
+
+		if (from !== undefined && to !== undefined) {
+			text = editor.state.sliceDoc(from, to);
+			offset = from;
+			rangeFrom = from;
+			rangeTo = to;
+			isRange = true;
+		}
+
+		const hash = hashString(text);
+
+		if (this.hashLru.has(hash)) {
+			return this.hashLru.get(hash)!;
+		}
+
+		let res: LanguageToolApi;
+		try {
+			res = await getDetectionResult(text, () => this.settings);
+			this.hashLru.set(hash, res);
+		} catch (e) {
+			this.setStatusBarReady();
+			return Promise.reject(e);
+		}
+
+		const effects: StateEffect<any>[] = [];
+
+		if (isRange) {
+			effects.push(
+				clearUnderlinesInRange.of({
+					from: rangeFrom,
+					to: rangeTo,
+				}),
+			);
+		} else {
+			effects.push(clearUnderlines.of(null));
+		}
+
+		if (res.matches) {
+			for (const match of res.matches) {
+				const start = match.offset + offset;
+				const end = match.offset + offset + match.length;
+
+				effects.push(
+					addUnderline.of({
+						from: start,
+						to: end,
+						match,
+					}),
+				);
+			}
+		}
+
+		if (effects.length) {
+			editor.dispatch({
+				effects,
+			});
+		}
+
+		this.setStatusBarReady();
 	}
 
 	public async loadSettings() {
