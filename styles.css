@@ -37,6 +37,8 @@
   }
 }
 
+.lt-predictions-container-glass.cm-tooltip,
+.lt-predictions-container.cm-tooltip,
 .lt-predictions-container-glass,
 .lt-predictions-container {
   position: absolute;
