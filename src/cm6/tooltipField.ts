@@ -86,7 +86,7 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 	});
 }
 
-function getTooltip(plugin: LanguageToolPlugin, state: EditorState): Tooltip[] {
+function getTooltip(tooltips: readonly Tooltip[], plugin: LanguageToolPlugin, state: EditorState): readonly Tooltip[] {
 	const underlines = state.field(underlineField);
 
 	if (underlines.size === 0 || state.selection.ranges.length > 1) {
@@ -104,9 +104,20 @@ function getTooltip(plugin: LanguageToolPlugin, state: EditorState): Tooltip[] {
 	});
 
 	if (primaryUnderline !== null) {
+		const { from, to } = primaryUnderline as UnderlineEffect;
+
+		if (tooltips.length) {
+			const tooltip = tooltips[0];
+
+			if (tooltip.pos === from && tooltip.end === to) {
+				return tooltips;
+			}
+		}
+
 		return [
 			{
-				pos: (primaryUnderline as UnderlineEffect).from,
+				pos: from,
+				end: to,
 				above: true,
 				strictSide: false,
 				arrow: false,
@@ -124,8 +135,8 @@ function getTooltip(plugin: LanguageToolPlugin, state: EditorState): Tooltip[] {
 
 export function buildTooltipField(plugin: LanguageToolPlugin) {
 	return StateField.define<readonly Tooltip[]>({
-		create: state => getTooltip(plugin, state),
-		update: (_, tr) => getTooltip(plugin, tr.state),
+		create: state => getTooltip([], plugin, state),
+		update: (tooltips, tr) => getTooltip(tooltips, plugin, tr.state),
 		provide: f => showTooltip.computeN([f], state => state.field(f)),
 	});
 }
