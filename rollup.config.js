@@ -27,7 +27,6 @@ export default {
         '@codemirror/state',
         '@codemirror/stream-parser',
         '@codemirror/text',
-        '@codemirror/tooltip',
         '@codemirror/view',
     ],
     plugins: [
