@@ -7,12 +7,22 @@ Note: if you are worried about the privacy of your notes you should selfhost lan
 
 If you decide to self host the service, you need to change the link in the configuration accordingly.
 
-## Usage
+## Installation
 
-1. Add a Shortcut to the "Check Text" action.
-2. Select lines you want to check (if there are no lines selected it will check the whole file)
-3. Use your shortcut
-4. Press on an underlined Word to open the popover and see the explanation and possible fixes
+1. In Obsidian, under Settings / Community plugins, disable "Safe mode" (read the safety warning).
+2. Click the Browse button for Community plugins.
+3. In the top-left search field, search for "LanguangeTool Integration". Click the Install button.
+4. After the installation is successful, click Enable to enable the plugin. 
+
+## Setting Up & Use case
+
+After installing and enabling the plugin, you can set up three hotkeys (under Settings / Hotkeys) which can be found under the description "LanguangeTool Integration" through the Filter search field, to find specific hotkey functions quicker. Make sure that there is no conflict with existing hotkeys and the spellcheck function within Obsidian, if enabled (Settings / Editor / Spellcheck ON/OFF).
+
+* **"Check Text"** checks the whole document in view, if no text is selected. If you want to check only a word, sentence or paragraph, select the text of choice and press the keyboard shortcut you have previously setup. Click on the red underlined word that LanguageTool identified as a possible spelling mistake to get corrective suggestions in a popover window, with the option to add the word to a personal dictionary.
+* **"Clear Suggestions"** clears the document or selected text of all red underlines from words or passages that were not corrected or changed.
+* **"Toggle Automatic Checking"** toggles ON/OFF the automatic spellchecking function as you write or change the document's contents.
+
+**LanguangeTool tries to auto-detect the language used.** Selecting a specific language (under Settings / Plugin Options / LanguageTool Integration / Static language) is normally not necessary. **This feature enables the user to spellcheck in different languages within the same document** (e.g. a dissertation written in English with quotes in a foreign language), which is ordinarily not possible with the built-in spellcheck function of Obsidian.
 
 ## Premium Accounts
 *As far as I know*, it is not possible to use the premium features.
@@ -33,4 +43,4 @@ but I dont know if this is really possible. I dont have Language Tool Premium
 
 # Demo
 
-![demo](/demos/Demo1.png)
+![demo-02022022](https://user-images.githubusercontent.com/98941594/152318322-83abb30d-fee0-44cf-9700-262f4c0de4c4.png)
