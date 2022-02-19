@@ -25,17 +25,11 @@ After installing and enabling the plugin, you can set up three hotkeys (under Se
 **LanguangeTool tries to auto-detect the language used.** Selecting a specific language (under Settings / Plugin Options / LanguageTool Integration / Static language) is normally not necessary. **This feature enables the user to spellcheck in different languages within the same document** (e.g. a dissertation written in English with quotes in a foreign language), which is ordinarily not possible with the built-in spellcheck function of Obsidian.
 
 ## Premium Accounts
-*As far as I know*, it is not possible to use the premium features.
-This is something that *can't* be implemented into this plugin.
-For you to use the premium features, you need an API Key to the Premium API\
-See details about that:
-- https://languagetool.org/editor/settings/api
-- https://languagetool.org/proofreading-api
-- https://github.com/Clemens-E/obsidian-languagetool-plugin/issues/8#issuecomment-841726725
+We finally offically support LanguageTool Premium.
+To use the premium features, you (obviously) need a Premium Account, and an API key.
+For you to receive an API Key, send a short notice to the LanguageTool support at support@languagetoolplus.com, asking for it like "Please set an API key for my account, so I can use LanguageTool Premium with Obsidian."
 
-[a user commented](https://github.com/Clemens-E/obsidian-languagetool-plugin/issues/32#issuecomment-914673449) thats its possible to receive API access by requesting it,
-but I dont know if this is really possible. I dont have Language Tool Premium
-
+Configure your email, API key, and the new URL (https://api.languagetoolplus.com) in the plugin settings
 
 ## Manually installing the plugin
 

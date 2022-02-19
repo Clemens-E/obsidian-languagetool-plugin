@@ -14,6 +14,16 @@
     },
     "keywords": [],
     "author": "Clemens Ertle",
+    "contributors": [
+        {
+            "name": "Clemens Ertle",
+            "url": "https://github.com/Clemens-E"
+        },
+        {
+            "name": "Matthew Meyers",
+            "url": "https://github.com/mgmeyers"
+        }
+    ],
     "repository": {
         "url": "https://github.com/Clemens-E/obsidian-languagetool-plugin"
     },
