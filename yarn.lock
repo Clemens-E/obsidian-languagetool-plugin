@@ -219,8 +219,8 @@
     "@codemirror/text" "^0.19.0"
 
 "@codemirror/stream-parser@https://github.com/lishid/stream-parser":
-  version "0.19.3"
-  resolved "https://github.com/lishid/stream-parser#da21e0a1f36c29aefca26a18db162fdc46d869bb"
+  version "0.19.6"
+  resolved "https://github.com/lishid/stream-parser#26c8edae7bdf63dc34d358d1de640bdd12e7b09f"
   dependencies:
     "@codemirror/language" "^0.19.0"
     "@codemirror/state" "^0.19.0"
