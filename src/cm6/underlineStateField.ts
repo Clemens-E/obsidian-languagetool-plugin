@@ -18,6 +18,10 @@ export const clearUnderlinesInRange = StateEffect.define<{
 	from: number;
 	to: number;
 }>();
+export const ignoreUnderline = StateEffect.define<{
+	from: number;
+	to: number;
+}>();
 
 function filterUnderlines(decorationStart: number, decorationEnd: number, rangeStart: number, rangeEnd: number) {
 	// Decoration begins in defined range
@@ -43,11 +47,66 @@ function filterUnderlines(decorationStart: number, decorationEnd: number, rangeS
 	return true;
 }
 
+export const ignoredUnderlineField = StateField.define<{
+	marks: DecorationSet;
+	ignoredRanges: Set<string>;
+}>({
+	create() {
+		return {
+			// Using a decoration set allows us to update ignored ranges
+			// when the document around them is changed
+			marks: Decoration.none,
+
+			// But we use this set to check if a range is ignored. See
+			// underlineField below
+			ignoredRanges: new Set(),
+		};
+	},
+	update(state, tr) {
+		state.marks = state.marks.map(tr.changes);
+
+		// Rebuild ignoredRanges to account for tr.changes
+		state.ignoredRanges.clear();
+		state.marks.between(0, tr.newDoc.length, (from, to) => {
+			state.ignoredRanges.add(`${from},${to}`);
+		});
+
+		// Clear out any decorations when their contents are edited
+		if (tr.docChanged && tr.selection && state.marks.size) {
+			state.marks = state.marks.update({
+				filter: (from, to) => {
+					const shouldKeepRange = filterUnderlines(from, to, tr.selection!.main.from, tr.selection!.main.to);
+
+					if (!shouldKeepRange) {
+						state.ignoredRanges.delete(`${from},${to}`);
+					}
+
+					return shouldKeepRange;
+				},
+			});
+		}
+
+		for (const e of tr.effects) {
+			if (e.is(ignoreUnderline)) {
+				const { from, to } = e.value;
+
+				state.ignoredRanges.add(`${from},${to}`);
+				state.marks = state.marks.update({
+					add: [Decoration.mark({}).range(from, to)],
+				});
+			}
+		}
+
+		return state;
+	},
+});
+
 export const underlineField = StateField.define<DecorationSet>({
 	create() {
 		return Decoration.none;
 	},
 	update(underlines, tr) {
+		const { ignoredRanges } = tr.state.field(ignoredUnderlineField);
 		const seenRanges = new Set<string>();
 
 		// Memoize any positions we check so we can avoid some work
@@ -113,9 +172,15 @@ export const underlineField = StateField.define<DecorationSet>({
 		for (const e of tr.effects) {
 			if (e.is(addUnderline)) {
 				const { from, to, match } = e.value;
-				const key = `${from}${to}`;
+				const key = `${from},${to}`;
 
-				if (!seenRanges.has(key) && canDecorate(from) && canDecorate(to) && isRuleAllowed(match, from, to)) {
+				if (
+					!ignoredRanges.has(key) &&
+					!seenRanges.has(key) &&
+					canDecorate(from) &&
+					canDecorate(to) &&
+					isRuleAllowed(match, from, to)
+				) {
 					seenRanges.add(key);
 					underlines = underlines.update({
 						add: [
@@ -128,7 +193,7 @@ export const underlineField = StateField.define<DecorationSet>({
 				}
 			} else if (e.is(clearUnderlines)) {
 				underlines = Decoration.none;
-			} else if (e.is(clearUnderlinesInRange)) {
+			} else if (e.is(clearUnderlinesInRange) || e.is(ignoreUnderline)) {
 				underlines = underlines.update({
 					filter: (from, to) => filterUnderlines(from, to, e.value.from, e.value.to),
 				});

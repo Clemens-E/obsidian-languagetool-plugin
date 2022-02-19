@@ -4,7 +4,7 @@ import { StateField, EditorState } from '@codemirror/state';
 import { getIssueTypeClassName } from '../helpers';
 import { setIcon } from 'obsidian';
 import LanguageToolPlugin from 'src';
-import { UnderlineEffect, clearUnderlinesInRange, underlineField } from './underlineStateField';
+import { UnderlineEffect, clearUnderlinesInRange, underlineField, ignoreUnderline } from './underlineStateField';
 
 function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline: UnderlineEffect) {
 	const match = underline.match;
@@ -30,6 +30,11 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 		}
 
 		const clearUnderlineEffect = clearUnderlinesInRange.of({
+			from: view.state.selection.main.from,
+			to: view.state.selection.main.to,
+		});
+
+		const ignoreUnderlineEffect = ignoreUnderline.of({
 			from: view.state.selection.main.from,
 			to: view.state.selection.main.to,
 		});
@@ -77,7 +82,7 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 					button.createSpan({ text: 'Ignore suggestion' });
 					button.onclick = () => {
 						view.dispatch({
-							effects: [clearUnderlineEffect],
+							effects: [ignoreUnderlineEffect],
 						});
 					};
 				}
