@@ -23,7 +23,7 @@ export default class LanguageToolPlugin extends Plugin {
 	private legacyPlugin: LegacyLanguageToolPlugin;
 
 	public async onload() {
-		this.isLegacyEditor = Boolean((this.app.vault as any).getConfig('legacyEditor'));
+		this.isLegacyEditor = Boolean(!(this.app as any).isMobile && (this.app.vault as any).getConfig('legacyEditor'));
 
 		// Settings
 		await this.loadSettings();
