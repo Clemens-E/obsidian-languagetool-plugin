@@ -35,8 +35,8 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 		});
 
 		const ignoreUnderlineEffect = ignoreUnderline.of({
-			from: view.state.selection.main.from,
-			to: view.state.selection.main.to,
+			from: underline.from,
+			to: underline.to,
 		});
 
 		if (buttons.length) {
@@ -81,6 +81,8 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 					setIcon(button.createSpan(), 'cross');
 					button.createSpan({ text: 'Ignore suggestion' });
 					button.onclick = () => {
+						console.log(underline.from, view.state.selection.main.from)
+						console.log(underline.to, view.state.selection.main.to)
 						view.dispatch({
 							effects: [ignoreUnderlineEffect],
 						});
