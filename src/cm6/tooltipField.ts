@@ -30,8 +30,8 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 		}
 
 		const clearUnderlineEffect = clearUnderlinesInRange.of({
-			from: view.state.selection.main.from,
-			to: view.state.selection.main.to,
+			from: underline.from,
+			to: underline.to,
 		});
 
 		const ignoreUnderlineEffect = ignoreUnderline.of({
