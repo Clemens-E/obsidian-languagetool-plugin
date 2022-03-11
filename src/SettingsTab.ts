@@ -28,6 +28,14 @@ export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 	pickyMode: false,
 };
 
+function getServerUrl(value: string) {
+	return value === 'standard'
+		? 'https://api.languagetool.org'
+		: value === 'premium'
+		? 'https://api.languagetoolplus.com'
+		: '';
+}
+
 export class LanguageToolSettingsTab extends PluginSettingTab {
 	private readonly plugin: LanguageToolPlugin;
 	private languages: { name: string; code: string; longCode: string }[];
@@ -65,13 +73,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.urlMode)
 						.onChange(async value => {
 							this.plugin.settings.urlMode = value as 'standard' | 'premium' | 'custom';
-							if (value === 'standard') {
-								this.plugin.settings.serverUrl = 'https://api.languagetool.org';
-							} else if (value === 'premium') {
-								this.plugin.settings.serverUrl = 'https://api.languagetoolplus.com';
-							} else if (value === 'custom') {
-								this.plugin.settings.serverUrl = '';
-							}
+							this.plugin.settings.serverUrl = getServerUrl(value);
 							input?.setValue(this.plugin.settings.serverUrl);
 							input?.setDisabled(value !== 'custom');
 							await this.plugin.saveSettings();
@@ -150,6 +152,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						}).onclick = async () => {
 							this.plugin.settings.urlMode = 'premium';
 							urlDropdown?.setValue('premium');
+							this.plugin.settings.serverUrl = getServerUrl(value);
 							await this.plugin.saveSettings();
 							return modal.close();
 						};

@@ -27,7 +27,10 @@ export default class LanguageToolPlugin extends Plugin {
 
 		// Settings
 		await this.loadSettings();
-		const unmodifiedSettings = await this.loadData();
+		let unmodifiedSettings = await this.loadData();
+		if (!unmodifiedSettings || Object.keys(unmodifiedSettings).length === 0) {
+			unmodifiedSettings = this.settings;
+		}
 		if (!unmodifiedSettings.urlMode || unmodifiedSettings.urlMode.length === 0) {
 			const { serverUrl } = this.settings;
 			this.settings.urlMode =
@@ -38,6 +41,7 @@ export default class LanguageToolPlugin extends Plugin {
 					: 'custom';
 			try {
 				await this.saveSettings();
+				await this.loadSettings();
 				new Notice('updated LanguageTool Settings, please confirm your server URL in the settings tab', 10000);
 			} catch (e) {
 				console.error(e);
