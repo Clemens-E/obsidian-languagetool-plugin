@@ -27,6 +27,22 @@ export default class LanguageToolPlugin extends Plugin {
 
 		// Settings
 		await this.loadSettings();
+		const unmodifiedSettings = await this.loadData();
+		if (!unmodifiedSettings.urlMode || unmodifiedSettings.urlMode.length === 0) {
+			const { serverUrl } = this.settings;
+			this.settings.urlMode =
+				serverUrl === 'https://api.languagetool.org'
+					? 'standard'
+					: serverUrl === 'https://api.languagetoolplus.com'
+					? 'premium'
+					: 'custom';
+			try {
+				await this.saveSettings();
+				new Notice('updated LanguageTool Settings, please confirm your server URL in the settings tab', 10000);
+			} catch (e) {
+				console.error(e);
+			}
+		}
 
 		if (this.settings.serverUrl.includes('/v2/check')) {
 			new Notice(

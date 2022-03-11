@@ -1,10 +1,11 @@
-import { App, PluginSettingTab, Setting, TextComponent } from 'obsidian';
+import { App, DropdownComponent, Modal, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import LanguageToolPlugin from '.';
 
 export interface LanguageToolPluginSettings {
 	shouldAutoCheck: boolean;
 
 	serverUrl: string;
+	urlMode: 'standard' | 'premium' | 'custom';
 	glassBg: boolean;
 	apikey?: string;
 	username?: string;
@@ -19,6 +20,8 @@ export interface LanguageToolPluginSettings {
 
 export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 	serverUrl: 'https://api.languagetool.org',
+	urlMode: 'standard',
+
 	glassBg: false,
 	shouldAutoCheck: false,
 
@@ -42,37 +45,131 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 
 	public display(): void {
 		const { containerEl } = this;
-
+		let urlDropdown: DropdownComponent | null = null;
 		containerEl.empty();
-
 		containerEl.createEl('h2', { text: 'Settings for LanguageTool' });
 		new Setting(containerEl)
 			.setName('Endpoint')
 			.setDesc('Endpoint that will be used to make requests to')
 			.then(setting => {
+				setting.controlEl.style.display = 'inline-grid';
 				let input: TextComponent | null = null;
-
-				setting
-					.addText(text => {
-						input = text;
-						text
-							.setPlaceholder('Enter endpoint')
-							.setValue(this.plugin.settings.serverUrl)
-							.onChange(async value => {
-								this.plugin.settings.serverUrl = value.replace(/\/v2\/check\/$/, '').replace(/\/$/, '');
-								await this.plugin.saveSettings();
-							});
-					})
-					.addExtraButton(button => {
-						button
-							.setIcon('reset')
-							.setTooltip('Reset to default')
-							.onClick(async () => {
-								this.plugin.settings.serverUrl = DEFAULT_SETTINGS.serverUrl;
-								input?.setValue(DEFAULT_SETTINGS.serverUrl);
-								await this.plugin.saveSettings();
-							});
-					});
+				setting.addDropdown(component => {
+					urlDropdown = component;
+					component
+						.addOptions({
+							standard: '(Standard) api.languagetool.org',
+							premium: '(Premium) api.languagetoolplus.com',
+							custom: 'Custom URL',
+						})
+						.setValue(this.plugin.settings.urlMode)
+						.onChange(async value => {
+							this.plugin.settings.urlMode = value as 'standard' | 'premium' | 'custom';
+							if (value === 'standard') {
+								this.plugin.settings.serverUrl = 'https://api.languagetool.org';
+							} else if (value === 'premium') {
+								this.plugin.settings.serverUrl = 'https://api.languagetoolplus.com';
+							} else if (value === 'custom') {
+								this.plugin.settings.serverUrl = '';
+							}
+							input?.setValue(this.plugin.settings.serverUrl);
+							input?.setDisabled(value !== 'custom');
+							await this.plugin.saveSettings();
+						});
+				});
+				setting.addText(text => {
+					input = text;
+					text
+						.setPlaceholder('https://your-custom-url.com')
+						.setValue(this.plugin.settings.serverUrl)
+						.setDisabled(this.plugin.settings.urlMode === 'custom')
+						.onChange(async value => {
+							this.plugin.settings.serverUrl = value.replace(/\/v2\/check\/$/, '').replace(/\/$/, '');
+							await this.plugin.saveSettings();
+						});
+				});
+			});
+		new Setting(containerEl)
+			.setName('API Username')
+			.setDesc('Enter a username/email for API Access')
+			.addText(text =>
+				text
+					.setPlaceholder('peterlustig@gmail.com')
+					.setValue(this.plugin.settings.username || '')
+					.onChange(async value => {
+						this.plugin.settings.username = value.replace(/\s+/g, '');
+						await this.plugin.saveSettings();
+					}),
+			)
+			.then(setting => {
+				setting.descEl.createEl('br');
+				setting.descEl.createEl(
+					'a',
+					{
+						text: 'Click here for information about Premium Access',
+						href: 'https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts',
+					},
+					a => {
+						a.setAttr('target', '_blank');
+					},
+				);
+			});
+		let disableUrlPopup = false;
+		new Setting(containerEl)
+			.setName('API Key')
+			.setDesc('Enter an API Key')
+			.addText(text =>
+				text.setValue(this.plugin.settings.apikey || '').onChange(async value => {
+					this.plugin.settings.apikey = value.replace(/\s+/g, '');
+					if (
+						this.plugin.settings.apikey.length > 0 &&
+						this.plugin.settings.urlMode !== 'premium' &&
+						!disableUrlPopup
+					) {
+						const modal = new Modal(this.app);
+						modal.titleEl.createEl('span', { text: 'Warning' });
+						modal.contentEl.createEl('p', {
+							text: 'You have entered an API Key but you are not using the Premium Endpoint',
+						});
+						modal.contentEl.style.display = 'grid';
+						const container = modal.contentEl.createEl('div', { attr: { style: 'justify-self:center' } });
+						container.createEl('button', {
+							text: "I know what I'm doing",
+							attr: {
+								style: 'justify-self:flex-start; color:red;',
+							},
+						}).onclick = () => {
+							disableUrlPopup = true;
+							modal.close();
+						};
+						container.createEl('button', {
+							text: 'Change to Premium',
+							attr: {
+								style: 'justify-self:flex-end',
+							},
+						}).onclick = async () => {
+							this.plugin.settings.urlMode = 'premium';
+							urlDropdown?.setValue('premium');
+							await this.plugin.saveSettings();
+							return modal.close();
+						};
+						modal.open();
+					}
+					await this.plugin.saveSettings();
+				}),
+			)
+			.then(setting => {
+				setting.descEl.createEl('br');
+				setting.descEl.createEl(
+					'a',
+					{
+						text: 'Click here for information about Premium Access',
+						href: 'https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts',
+					},
+					a => {
+						a.setAttr('target', '_blank');
+					},
+				);
 			});
 		new Setting(containerEl)
 			.setName('Autocheck Text')
@@ -196,55 +293,6 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					{
 						text: 'Click here for a list of rules and categories',
 						href: 'https://community.languagetool.org/rule/list',
-					},
-					a => {
-						a.setAttr('target', '_blank');
-					},
-				);
-			});
-
-		new Setting(containerEl)
-			.setName('API Username')
-			.setDesc('Enter a username/email for API Access')
-			.addText(text =>
-				text
-					.setPlaceholder('peterlustig@gmail.com')
-					.setValue(this.plugin.settings.username || '')
-					.onChange(async value => {
-						this.plugin.settings.username = value.replace(/\s+/g, '');
-						await this.plugin.saveSettings();
-					}),
-			)
-			.then(setting => {
-				setting.descEl.createEl('br');
-				setting.descEl.createEl(
-					'a',
-					{
-						text: 'Click here for information about Premium Access',
-						href: 'https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts',
-					},
-					a => {
-						a.setAttr('target', '_blank');
-					},
-				);
-			});
-
-		new Setting(containerEl)
-			.setName('API Key')
-			.setDesc('Enter an API Key')
-			.addText(text =>
-				text.setValue(this.plugin.settings.apikey || '').onChange(async value => {
-					this.plugin.settings.apikey = value.replace(/\s+/g, '');
-					await this.plugin.saveSettings();
-				}),
-			)
-			.then(setting => {
-				setting.descEl.createEl('br');
-				setting.descEl.createEl(
-					'a',
-					{
-						text: 'Click here for information about Premium Access',
-						href: 'https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts',
 					},
 					a => {
 						a.setAttr('target', '_blank');

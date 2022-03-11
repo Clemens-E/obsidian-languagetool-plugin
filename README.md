@@ -25,7 +25,10 @@ After installing and enabling the plugin, you can set up three hotkeys (under Se
 **LanguangeTool tries to auto-detect the language used.** Selecting a specific language (under Settings / Plugin Options / LanguageTool Integration / Static language) is normally not necessary. **This feature enables the user to spellcheck in different languages within the same document** (e.g. a dissertation written in English with quotes in a foreign language), which is ordinarily not possible with the built-in spellcheck function of Obsidian.
 
 ## Premium Accounts
-We finally offically support LanguageTool Premium.
+We finally support LanguageTool Premium.
+
+⚠️ Please report any bugs, issues or suggestions related to this Plugin to us (this GitHub Repository) directly, and ***not*** to the LanguageTool Support, as this is an unofficial community plugin
+
 To use the premium features, you (obviously) need a Premium Account, and an API key.
 For you to receive an API Key, send a short notice to the LanguageTool support at support@languagetoolplus.com, asking for it like "Please set an API key for my account, so I can use LanguageTool Premium with Obsidian."
 
