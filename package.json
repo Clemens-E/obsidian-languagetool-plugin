@@ -31,7 +31,7 @@
     "devDependencies": {
         "@codemirror/language": "^0.19.7",
         "@codemirror/state": "^0.19.6",
-        "@codemirror/stream-parser": "https://github.com/lishid/stream-parser",
+        "@codemirror/stream-parser": "https://github.com/lishid/stream-parser.git",
         "@codemirror/tooltip": "^0.19.10",
         "@codemirror/view": "^0.19.37",
         "@rollup/plugin-commonjs": "^17.1.0",
