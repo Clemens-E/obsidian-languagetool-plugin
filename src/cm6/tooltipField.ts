@@ -1,5 +1,4 @@
-import { Tooltip, showTooltip } from '@codemirror/tooltip';
-import { EditorView } from '@codemirror/view';
+import { EditorView, Tooltip, showTooltip } from '@codemirror/view';
 import { StateField, EditorState } from '@codemirror/state';
 import { getIssueTypeClassName } from '../helpers';
 import { setIcon } from 'obsidian';
