@@ -18,20 +18,12 @@ export default {
     external: [
         'obsidian',
         '@codemirror/autocomplete',
-        '@codemirror/closebrackets',
         '@codemirror/commands',
-        '@codemirror/fold',
-        '@codemirror/gutter',
-        '@codemirror/history',
         '@codemirror/language',
-        '@codemirror/rangeset',
-        '@codemirror/rectangular-selection',
         '@codemirror/search',
         '@codemirror/state',
-        '@codemirror/stream-parser',
-        '@codemirror/text',
-        '@codemirror/tooltip',
         '@codemirror/view',
+        '@lezer/common'
     ],
     plugins: [
         json(),

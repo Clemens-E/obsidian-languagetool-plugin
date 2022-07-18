@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { editorViewField } from 'obsidian';
+import { editorViewField, MarkdownView } from 'obsidian';
 import LanguageToolPlugin from 'src';
 
 export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
@@ -12,6 +12,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
 			return false;
 		}
 
+		// @ts-ignore
 		const markdownView = view.state.field(editorViewField);
 
 		minRange = Math.min(minRange, Math.min(from, to));
@@ -23,7 +24,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
 			const startLine = view.lineBlockAt(minRange);
 			const endLine = view.lineBlockAt(maxRange);
 
-			plugin.runDetection(view, markdownView, startLine.from, endLine.to).catch(e => {
+			plugin.runDetection(view, markdownView as MarkdownView, startLine.from, endLine.to).catch(e => {
 				console.error(e);
 			});
 			// The API has a rate limit of 1 request every 3 seconds

@@ -1,4 +1,4 @@
-import { tooltips } from '@codemirror/tooltip';
+import { tooltips } from '@codemirror/view';
 import LanguageToolPlugin from 'src';
 import { buildAutoCheckHandler } from './buildAutoCheckHandler';
 import { buildTooltipField } from './tooltipField';
