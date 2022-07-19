@@ -1,7 +1,6 @@
 import { EditorView, Decoration, DecorationSet } from '@codemirror/view';
 import { StateField, StateEffect } from '@codemirror/state';
-import { syntaxTree } from '@codemirror/language';
-import { tokenClassNodeProp } from '@codemirror/language';
+import { syntaxTree, tokenClassNodeProp } from '@codemirror/language';
 import { Tree } from '@lezer/common';
 import { getIssueTypeClassName, ignoreListRegEx } from '../helpers';
 import { MatchesEntity } from '../LanguageToolTypings';
