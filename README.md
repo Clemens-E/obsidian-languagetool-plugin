@@ -7,6 +7,11 @@ Note: if you are worried about the privacy of your notes you should selfhost lan
 
 If you decide to self host the service, you need to change the link in the configuration accordingly.
 
+> ***:warning: This Plugin is in maintenance mode***   
+> It does everything I want it to do, unless it breaks I do not have intentions to update it further.  
+> Feel free to open Issues/Suggestions but please understand that I'm devoting my freetime to other things.  
+> You are however welcome to create Pull Request and I will review/merge them and release new versions accordingly.
+
 ## Installation
 
 1. In Obsidian, under Settings / Community plugins, disable "Safe mode" (read the safety warning).
