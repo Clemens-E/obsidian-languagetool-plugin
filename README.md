@@ -34,10 +34,7 @@ We finally support LanguageTool Premium.
 
 ⚠️ Please report any bugs, issues or suggestions related to this Plugin to us (this GitHub Repository) directly, and ***not*** to the LanguageTool Support, as this is an unofficial community plugin
 
-To use the premium features, you (obviously) need a Premium Account, and an API key.
-For you to receive an API Key, send a short notice to the LanguageTool support at support@languagetoolplus.com, asking for it like "Please set an API key for my account, so I can use LanguageTool Premium with Obsidian."
-
-[![Email button](https://img.shields.io/badge/Ask_for_you_API_key-Only_if_you_have_a_premium_account-blue?style=for-the-badge&logo=maildotru)](mailto:support@languagetoolplus.com?subject=Request%20-%20LanguageTool%20Premium%20with%20Obsidian&body=Hi!%20%0A%0AI%20have%20a%20Premium%20LanguageTool%20account%20and%20would%20like%20to%20use%20it%20with%20Obsidian%20%0A(using%20the%20following%20plugin%20https://github.com/Clemens-E/obsidian-languagetool-plugin)%0A%0ACould%20you%20set%20an%20API%20key%20for%20my%20account?%20%0A%0AThanks%20in%20advance,%20%0ACheers%20😁)
+To use the premium features, you (obviously) need a Premium Account, and an API key. You find it at: https://languagetool.org/editor/settings/api
 
 Configure your email, API key, and the new URL (https://api.languagetoolplus.com) in the plugin settings
 
