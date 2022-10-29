@@ -11,6 +11,11 @@ export interface LanguageToolPluginSettings {
 	username?: string;
 	staticLanguage?: string;
 
+	englishVeriety?: undefined | 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
+	germanVeriety?: undefined | 'de-DE' | 'de-AT' | 'de-CH';
+	portugueseVeriety?: undefined | 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
+	catalanVeriety?: undefined | 'ca-ES' | 'ca-ES-valencia';
+
 	pickyMode: boolean;
 
 	ruleOtherCategories?: string;
@@ -210,6 +215,98 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					})
 					.catch(console.error);
 			});
+
+		containerEl.createEl('h3', { text: 'Language Varieties' });
+
+		containerEl.createEl('p', { text: 'Some languages have varieties depending on the country they are spoken in.' });
+
+		new Setting(containerEl)
+			.setName('Interpret English as')
+			.addDropdown(component => {
+					component
+						.addOptions({
+							default: '---',
+							'en-US': 'English (US)',
+							'en-GB': 'English (British)',
+							'en-CA': 'English (Canada)',
+							'en-AU': 'English (Australia)',
+							'en-ZA': 'English (South Africa)',
+							'en-NZ': 'English (New Zealand)',
+						})
+						.setValue(this.plugin.settings.englishVeriety ?? 'default')
+						.onChange(async value => {
+							if (value === 'default') {
+								this.plugin.settings.englishVeriety = undefined;
+							} else {
+								this.plugin.settings.englishVeriety = value as 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
+							}
+							await this.plugin.saveSettings();
+						});
+					});
+
+		new Setting(containerEl)
+			.setName('Interpret German as')
+			.addDropdown(component => {
+					component
+						.addOptions({
+							default: '---',
+							'de-DE': 'German (Germany)',
+							'de-CH': 'German (Switzerland)',
+							'de-AT': 'German (Austria)',
+						})
+						.setValue(this.plugin.settings.germanVeriety ?? 'default')
+						.onChange(async value => {
+							if (value === 'default') {
+								this.plugin.settings.germanVeriety = undefined;
+							} else {
+								this.plugin.settings.germanVeriety = value as 'de-DE' | 'de-CH' | 'de-AT';
+							}
+							await this.plugin.saveSettings();
+						});
+					});
+
+		new Setting(containerEl)
+			.setName('Interpret Portuguese as')
+			.addDropdown(component => {
+					component
+						.addOptions({
+							default: '---',
+							'pt-BR': 'Portuguese (Brazil)',
+							'pt-PT': 'Portuguese (Portugal)',
+							'pt-AO': 'Portuguese (Angola)',
+							'pt-MZ': 'Portuguese (Mozambique)',
+						})
+						.setValue(this.plugin.settings.portugueseVeriety ?? 'default')
+						.onChange(async value => {
+							if (value === 'default') {
+								this.plugin.settings.portugueseVeriety = undefined;
+							} else {
+								this.plugin.settings.portugueseVeriety = value as 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
+							}
+							await this.plugin.saveSettings();
+						});
+					});
+
+		new Setting(containerEl)
+			.setName('Interpret Catalan as')
+			.addDropdown(component => {
+					component
+						.addOptions({
+							default: '---',
+							'ca-ES': 'Catalan',
+							'ca-ES-valencia': 'Catalan (Valencian)',
+						})
+						.setValue(this.plugin.settings.catalanVeriety ?? 'default')
+						.onChange(async value => {
+							if (value === 'default') {
+								this.plugin.settings.catalanVeriety = undefined;
+							} else {
+								this.plugin.settings.catalanVeriety = value as 'ca-ES' | 'ca-ES-valencia';
+							}
+							await this.plugin.saveSettings();
+						});
+					});
+
 
 		containerEl.createEl('h3', { text: 'Rule Categories' });
 
