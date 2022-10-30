@@ -48,19 +48,27 @@ export async function getDetectionResult(
 	}
 
 	if (settings.englishVeriety) {
-		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${settings.englishVeriety}`;
+		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
+			settings.englishVeriety
+		}`;
 	}
 
 	if (settings.germanVeriety) {
-		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${settings.germanVeriety}`;
+		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
+			settings.germanVeriety
+		}`;
 	}
 
 	if (settings.portugueseVeriety) {
-		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${settings.portugueseVeriety}`;
+		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
+			settings.portugueseVeriety
+		}`;
 	}
 
 	if (settings.catalanVeriety) {
-		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${settings.catalanVeriety}`;
+		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
+			settings.catalanVeriety
+		}`;
 	}
 
 	if (settings.apikey && settings.username && settings.apikey.length > 1 && settings.username.length > 1) {
