@@ -245,17 +245,17 @@ export default class LanguageToolPlugin extends Plugin {
 
 		const hash = hashString(text);
 
-		if (this.hashLru.has(hash)) {
-			return this.hashLru.get(hash)!;
-		}
-
 		let res: LanguageToolApi;
-		try {
-			res = await getDetectionResult(text, () => this.settings);
-			this.hashLru.set(hash, res);
-		} catch (e) {
-			this.setStatusBarReady();
-			return Promise.reject(e);
+		if (this.hashLru.has(hash)) {
+			res = this.hashLru.get(hash)!;
+		} else {
+			try {
+				res = await getDetectionResult(text, () => this.settings);
+				this.hashLru.set(hash, res);
+			} catch (e) {
+				this.setStatusBarReady();
+				return Promise.reject(e);
+			}
 		}
 
 		const effects: StateEffect<any>[] = [];
