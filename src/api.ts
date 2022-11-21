@@ -4,6 +4,8 @@ import { getRuleCategories } from './helpers';
 import { LanguageToolApi } from './LanguageToolTypings';
 import { LanguageToolPluginSettings } from './SettingsTab';
 
+export const logs: string[] = [];
+
 export async function getDetectionResult(
 	text: string,
 	getSettings: () => LanguageToolPluginSettings,
@@ -100,7 +102,8 @@ export async function getDetectionResult(
 	}
 
 	if (!res.ok) {
-		new Notice(`request to LanguageTool failed\n${res.statusText}`, 5000);
+		await pushLogs(res, settings);
+		new Notice(`Request to LanguageTool failed\n${res.statusText}Check Plugin Settings for Logs`, 5000);
 		return Promise.reject(new Error(`unexpected status ${res.status}, see network tab`));
 	}
 
@@ -113,4 +116,24 @@ export async function getDetectionResult(
 	}
 
 	return body;
+}
+
+export async function pushLogs(res: Response, settings: LanguageToolPluginSettings): Promise<void> {
+	let debugString = `${new Date().toLocaleString()}:
+  url used for request: ${res.url}
+  Status: ${res.status}
+  Body: ${(await res.text()).slice(0, 200)}
+  Settings: ${JSON.stringify({ ...settings, username: 'REDACTED', apikey: 'REDACTED' })}
+  `;
+	if (settings.username || settings.apikey) {
+		debugString = debugString
+			.replaceAll(settings.username ?? 'username', '<<username>>')
+			.replaceAll(settings.apikey ?? 'apiKey', '<<apikey>>');
+	}
+
+	logs.push(debugString);
+
+	if (logs.length > 10) {
+		logs.shift();
+	}
 }

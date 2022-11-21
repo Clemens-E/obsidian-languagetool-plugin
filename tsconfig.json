@@ -15,7 +15,8 @@
             "dom",
             "es5",
             "scripthost",
-            "es2018"
+            "es2018",
+            "es2021"
         ]
     },
     "include": [

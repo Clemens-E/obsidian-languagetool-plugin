@@ -1,5 +1,6 @@
-import { App, DropdownComponent, Modal, PluginSettingTab, Setting, TextComponent } from 'obsidian';
+import { App, DropdownComponent, Modal, Notice, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 import LanguageToolPlugin from '.';
+import { logs } from './api';
 
 export interface LanguageToolPluginSettings {
 	shouldAutoCheck: boolean;
@@ -61,6 +62,13 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		let urlDropdown: DropdownComponent | null = null;
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Settings for LanguageTool' });
+		const copyButton = containerEl.createEl('button', { text: 'Copy failed Request Logs' });
+		copyButton.onclick = async () => {
+			await window.navigator.clipboard.writeText(logs.join('\n'));
+			new Notice('Logs copied to clipboard');
+		};
+		copyButton.style.marginBottom = '5px';
+
 		new Setting(containerEl)
 			.setName('Endpoint')
 			.setDesc('Endpoint that will be used to make requests to')
@@ -197,12 +205,14 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				});
 			});
+		let staticLanguageComponent: DropdownComponent | null;
 		new Setting(containerEl)
 			.setName('Static Language')
 			.setDesc(
 				'Set a static language that will always be used (LanguageTool tries to auto detect the language, this is usually not necessary)',
 			)
 			.addDropdown(component => {
+				staticLanguageComponent = component;
 				this.requestLanguages()
 					.then(languages => {
 						component.addOption('auto', 'Auto Detect');
@@ -236,6 +246,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					if (value === 'default') {
 						this.plugin.settings.englishVeriety = undefined;
 					} else {
+						this.plugin.settings.staticLanguage = 'auto';
+						staticLanguageComponent?.setValue('auto');
 						this.plugin.settings.englishVeriety = value as 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
 					}
 					await this.plugin.saveSettings();
@@ -255,6 +267,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					if (value === 'default') {
 						this.plugin.settings.germanVeriety = undefined;
 					} else {
+						this.plugin.settings.staticLanguage = 'auto';
+						staticLanguageComponent?.setValue('auto');
 						this.plugin.settings.germanVeriety = value as 'de-DE' | 'de-CH' | 'de-AT';
 					}
 					await this.plugin.saveSettings();
@@ -275,6 +289,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					if (value === 'default') {
 						this.plugin.settings.portugueseVeriety = undefined;
 					} else {
+						this.plugin.settings.staticLanguage = 'auto';
+						staticLanguageComponent?.setValue('auto');
 						this.plugin.settings.portugueseVeriety = value as 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
 					}
 					await this.plugin.saveSettings();
@@ -293,6 +309,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					if (value === 'default') {
 						this.plugin.settings.catalanVeriety = undefined;
 					} else {
+						this.plugin.settings.staticLanguage = 'auto';
+						staticLanguageComponent?.setValue('auto');
 						this.plugin.settings.catalanVeriety = value as 'ca-ES' | 'ca-ES-valencia';
 					}
 					await this.plugin.saveSettings();
