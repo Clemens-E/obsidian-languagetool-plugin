@@ -1,5 +1,5 @@
-import { MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
-import { EditorView } from '@codemirror/view';
+import { Command, MarkdownView, Menu, Notice, Plugin, setIcon } from 'obsidian';
+import { Decoration, EditorView } from '@codemirror/view';
 import { StateEffect } from '@codemirror/state';
 import QuickLRU from 'quick-lru';
 import { DEFAULT_SETTINGS, LanguageToolPluginSettings, LanguageToolSettingsTab } from './SettingsTab';
@@ -7,7 +7,7 @@ import { LanguageToolApi } from './LanguageToolTypings';
 import { hashString } from './helpers';
 import { getDetectionResult } from './api';
 import { buildUnderlineExtension } from './cm6/underlineExtension';
-import { addUnderline, clearUnderlines, clearUnderlinesInRange } from './cm6/underlineStateField';
+import { addUnderline, clearUnderlines, clearUnderlinesInRange, underlineField } from './cm6/underlineStateField';
 import LegacyLanguageToolPlugin from './cm5/LegacyPlugin';
 import { legacyClearMarks } from './cm5/helpers';
 
@@ -144,13 +144,67 @@ export default class LanguageToolPlugin extends Plugin {
 				}
 			},
 		});
+		this.addCommand(this.getApplySuggestionCommand(1));
+		this.addCommand(this.getApplySuggestionCommand(2));
+		this.addCommand(this.getApplySuggestionCommand(3));
+	}
+
+	private getApplySuggestionCommand(n: number): Command {
+		return {
+			id: `ltaccept-suggestion-${n}`,
+			name: `Accept suggestion #${n} when the cursor is within a Language-Tool-Hint`,
+			editorCheckCallback(checking, editor) {
+				// @ts-expect-error, not typed
+				const editorView = editor.cm as EditorView;
+				const cursorOffset = editor.posToOffset(editor.getCursor());
+
+				const relevantMatches: {
+					from: number;
+					to: number;
+					value: Decoration;
+				}[] = [];
+
+				// Get underline-matches at cursor
+				editorView.state.field(underlineField).between(cursorOffset, cursorOffset, (from, to, value) => {
+					relevantMatches.push({ from, to, value });
+				});
+
+				// Check that there is exactly one match that has a replacement in the slot that is called.
+				const preconditionsSuccessfull =
+					relevantMatches.length === 1 && relevantMatches[0]?.value?.spec?.match?.replacements?.length >= n;
+
+				if (checking) return preconditionsSuccessfull;
+
+				if (!preconditionsSuccessfull) {
+					console.error('Preconditions were not successfull to apply LT-suggestions.');
+					return;
+				}
+
+				// At this point, the check must have been successful.
+				const { from, to, value } = relevantMatches[0];
+				const change = {
+					from,
+					to,
+					insert: value.spec.match.replacements[n - 1].value,
+				};
+
+				// Insert the text of the match
+				editorView.dispatch({
+					changes: [change],
+					effects: [clearUnderlinesInRange.of({ from, to })],
+				});
+			},
+		};
 	}
 
 	public setStatusBarReady() {
 		this.isloading = false;
 		this.statusBarText.empty();
 		this.statusBarText.createSpan({ cls: 'lt-status-bar-btn' }, span => {
-			span.createSpan({ cls: 'lt-status-bar-check-icon', text: 'Aa' });
+			span.createSpan({
+				cls: 'lt-status-bar-check-icon',
+				text: 'Aa',
+			});
 		});
 	}
 
