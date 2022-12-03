@@ -27,7 +27,6 @@
     "repository": {
         "url": "https://github.com/Clemens-E/obsidian-languagetool-plugin"
     },
-    "license": "UNLICENSED",
     "devDependencies": {
         "@codemirror/language": "https://github.com/lishid/cm-language",
         "@codemirror/state": "^6.0.1",
