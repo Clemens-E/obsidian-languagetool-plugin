@@ -144,6 +144,30 @@ export default class LanguageToolPlugin extends Plugin {
 				}
 			},
 		});
+		this.addCommand({
+			id: 'ltjump-to-next-suggestion',
+			name: 'Jump to next Suggestion',
+			editorCheckCallback: (checking, editor) => {
+				// @ts-expect-error, not typed
+				const editorView = editor.cm as EditorView;
+				const cursorOffset = editor.posToOffset(editor.getCursor());
+				let firstMatch: { from: number; to: number } | null = null;
+				editorView.state.field(underlineField).between(cursorOffset + 1, Infinity, (from, to) => {
+					if (!firstMatch || firstMatch.from > from) {
+						firstMatch = { from, to };
+					}
+				});
+				if (checking) {
+					return Boolean(firstMatch);
+				}
+				if (!firstMatch) {
+					return;
+				}
+				// @ts-expect-error 2339
+				// ts cant handle that the variable gets assigned in a callback
+				editorView.dispatch({ selection: { anchor: firstMatch.from, head: firstMatch.to } });
+			},
+		});
 		this.addCommand(this.getApplySuggestionCommand(1));
 		this.addCommand(this.getApplySuggestionCommand(2));
 		this.addCommand(this.getApplySuggestionCommand(3));
