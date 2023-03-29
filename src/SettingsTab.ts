@@ -258,6 +258,11 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 				});
 			});
 		let staticLanguageComponent: DropdownComponent | null;
+		let englishVarietyDropdown: DropdownComponent | null;
+		let germanVarietyDropdown: DropdownComponent | null;
+		let portugueseVarietyDropdown: DropdownComponent | null;
+		let catalanVarietyDropdown: DropdownComponent | null;
+
 		new Setting(containerEl)
 			.setName('Static Language')
 			.setDesc(
@@ -272,6 +277,16 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						component.setValue(this.plugin.settings.staticLanguage ?? 'auto');
 						component.onChange(async value => {
 							this.plugin.settings.staticLanguage = value;
+							if (value !== 'auto') {
+								this.plugin.settings.englishVeriety = undefined;
+								englishVarietyDropdown?.setValue('default');
+								this.plugin.settings.germanVeriety = undefined;
+								germanVarietyDropdown?.setValue('default');
+								this.plugin.settings.portugueseVeriety = undefined;
+								portugueseVarietyDropdown?.setValue('default');
+								this.plugin.settings.catalanVeriety = undefined;
+								catalanVarietyDropdown?.setValue('default');
+							}
 							await this.plugin.saveSettings();
 						});
 					})
@@ -283,6 +298,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		containerEl.createEl('p', { text: 'Some languages have varieties depending on the country they are spoken in.' });
 
 		new Setting(containerEl).setName('Interpret English as').addDropdown(component => {
+			englishVarietyDropdown = component;
 			component
 				.addOptions({
 					default: '---',
@@ -307,6 +323,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		});
 
 		new Setting(containerEl).setName('Interpret German as').addDropdown(component => {
+			germanVarietyDropdown = component;
 			component
 				.addOptions({
 					default: '---',
@@ -328,6 +345,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		});
 
 		new Setting(containerEl).setName('Interpret Portuguese as').addDropdown(component => {
+			portugueseVarietyDropdown = component;
 			component
 				.addOptions({
 					default: '---',
@@ -350,6 +368,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		});
 
 		new Setting(containerEl).setName('Interpret Catalan as').addDropdown(component => {
+			catalanVarietyDropdown = component;
 			component
 				.addOptions({
 					default: '---',
