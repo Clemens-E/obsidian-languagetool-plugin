@@ -1,9 +1,29 @@
-import { App, DropdownComponent, Modal, Notice, PluginSettingTab, Setting, TextComponent } from 'obsidian';
+import {
+	App,
+	DropdownComponent,
+	Modal,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	SliderComponent,
+	TextComponent,
+} from 'obsidian';
 import LanguageToolPlugin from '.';
 import { logs } from './api';
 
+const MinuteInSeconds = 60;
+const SecondToMillisecondConversion = 1000;
+const StandardMaxRequestsPerMinute = 20;
+const PremiumMaxRequestsPerMinute = 80;
+
+const MaxAutoCheckDelay = 3000;
+const AutoCheckDelayStep = 200;
+const MinStandardAutoCheckDelay = (MinuteInSeconds / StandardMaxRequestsPerMinute) * SecondToMillisecondConversion;
+const MinPremiumAutoCheckDelay = (MinuteInSeconds / PremiumMaxRequestsPerMinute) * SecondToMillisecondConversion;
+
 export interface LanguageToolPluginSettings {
 	shouldAutoCheck: boolean;
+	autoCheckDelay: number;
 
 	serverUrl: string;
 	urlMode: 'standard' | 'premium' | 'custom';
@@ -30,6 +50,7 @@ export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
 
 	glassBg: false,
 	shouldAutoCheck: false,
+	autoCheckDelay: MinStandardAutoCheckDelay,
 
 	pickyMode: false,
 };
@@ -42,12 +63,27 @@ function getServerUrl(value: string) {
 		: '';
 }
 
+function getMinAllowedAutoCheckDelay(value: string) {
+	return value === 'standard' ? MinStandardAutoCheckDelay : value === 'premium' ? MinPremiumAutoCheckDelay : 0;
+}
+
 export class LanguageToolSettingsTab extends PluginSettingTab {
 	private readonly plugin: LanguageToolPlugin;
 	private languages: { name: string; code: string; longCode: string }[];
 	public constructor(app: App, plugin: LanguageToolPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	private configureAutoCheckDelaySlider(delaySlider: SliderComponent | null, value: string) {
+		const minAllowedAutoCheckDelay = getMinAllowedAutoCheckDelay(value);
+
+		if (this.plugin.settings.autoCheckDelay < minAllowedAutoCheckDelay) {
+			this.plugin.settings.autoCheckDelay = MinStandardAutoCheckDelay;
+		}
+
+		delaySlider?.setDisabled(value === 'standard');
+		delaySlider?.setLimits(minAllowedAutoCheckDelay, MaxAutoCheckDelay, AutoCheckDelayStep);
 	}
 
 	public async requestLanguages() {
@@ -60,6 +96,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 	public display(): void {
 		const { containerEl } = this;
 		let urlDropdown: DropdownComponent | null = null;
+		let autoCheckDelaySlider: SliderComponent | null = null;
 		containerEl.empty();
 		containerEl.createEl('h2', { text: 'Settings for LanguageTool' });
 		const copyButton = containerEl.createEl('button', { text: 'Copy failed Request Logs' });
@@ -89,6 +126,9 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 							this.plugin.settings.serverUrl = getServerUrl(value);
 							input?.setValue(this.plugin.settings.serverUrl);
 							input?.setDisabled(value !== 'custom');
+
+							this.configureAutoCheckDelaySlider(autoCheckDelaySlider, value);
+
 							await this.plugin.saveSettings();
 						});
 				});
@@ -195,6 +235,22 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					this.plugin.settings.shouldAutoCheck = value;
 					await this.plugin.saveSettings();
 				});
+			});
+		new Setting(containerEl)
+			.setName('AutoCheck Delay (ms)')
+			.setDesc('Length of time to wait for AutoCheck after last key press')
+			.addSlider(component => {
+				autoCheckDelaySlider = component;
+				if (urlDropdown) {
+					this.configureAutoCheckDelaySlider(autoCheckDelaySlider, urlDropdown.getValue());
+				}
+
+				component.setValue(this.plugin.settings.autoCheckDelay).onChange(async value => {
+					this.plugin.settings.autoCheckDelay = value;
+					await this.plugin.saveSettings();
+				});
+
+				component.setDynamicTooltip();
 			});
 		new Setting(containerEl)
 			.setName('Glass Background')

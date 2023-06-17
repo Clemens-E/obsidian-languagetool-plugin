@@ -27,8 +27,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
 			plugin.runDetection(view, markdownView as MarkdownView, startLine.from, endLine.to).catch(e => {
 				console.error(e);
 			});
-			// The API has a rate limit of 1 request every 3 seconds
-		}, 3000);
+		}, plugin.settings.autoCheckDelay);
 
 		return false;
 	});
