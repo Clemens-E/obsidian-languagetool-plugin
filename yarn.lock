@@ -190,8 +190,8 @@
     to-fast-properties "^2.0.0"
 
 "@codemirror/language@https://github.com/lishid/cm-language":
-  version "6.2.1"
-  resolved "https://github.com/lishid/cm-language#073afd8e6bc4d8e5cf6170a50f9b668a98c39f1c"
+  version "6.6.0"
+  resolved "https://github.com/lishid/cm-language#1aadcc247f20ccfda76424a9f853dbb4ee203fdc"
   dependencies:
     "@codemirror/state" "^6.0.0"
     "@codemirror/view" "^6.0.0"
