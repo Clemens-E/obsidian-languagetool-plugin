@@ -1,4 +1,13 @@
-import { App, DropdownComponent, Modal, Notice, PluginSettingTab, Setting, SliderComponent, TextComponent } from 'obsidian';
+import {
+	App,
+	DropdownComponent,
+	Modal,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	SliderComponent,
+	TextComponent,
+} from 'obsidian';
 import LanguageToolPlugin from '.';
 import { logs } from './api';
 
@@ -9,8 +18,8 @@ const PremiumMaxRequestsPerMinute = 80;
 
 const MaxAutoCheckDelay = 3000;
 const AutoCheckDelayStep = 200;
-const MinStandardAutoCheckDelay = MinuteInSeconds / StandardMaxRequestsPerMinute * SecondToMillisecondConversion;
-const MinPremiumAutoCheckDelay = MinuteInSeconds / PremiumMaxRequestsPerMinute * SecondToMillisecondConversion;
+const MinStandardAutoCheckDelay = (MinuteInSeconds / StandardMaxRequestsPerMinute) * SecondToMillisecondConversion;
+const MinPremiumAutoCheckDelay = (MinuteInSeconds / PremiumMaxRequestsPerMinute) * SecondToMillisecondConversion;
 
 export interface LanguageToolPluginSettings {
 	shouldAutoCheck: boolean;
@@ -55,11 +64,7 @@ function getServerUrl(value: string) {
 }
 
 function getMinAllowedAutoCheckDelay(value: string) {
-	return value === 'standard'
-		? MinStandardAutoCheckDelay
-		: value === 'premium'
-		? MinPremiumAutoCheckDelay
-		: 0;
+	return value === 'standard' ? MinStandardAutoCheckDelay : value === 'premium' ? MinPremiumAutoCheckDelay : 0;
 }
 
 export class LanguageToolSettingsTab extends PluginSettingTab {
@@ -70,12 +75,10 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	configureAutoCheckDelaySlider(delaySlider: SliderComponent | null, value: string)
-	{
-		const minAllowedAutoCheckDelay = getMinAllowedAutoCheckDelay(value)
+	private configureAutoCheckDelaySlider(delaySlider: SliderComponent | null, value: string) {
+		const minAllowedAutoCheckDelay = getMinAllowedAutoCheckDelay(value);
 
-		if(this.plugin.settings.autoCheckDelay < minAllowedAutoCheckDelay)
-		{
+		if (this.plugin.settings.autoCheckDelay < minAllowedAutoCheckDelay) {
 			this.plugin.settings.autoCheckDelay = MinStandardAutoCheckDelay;
 		}
 
@@ -122,8 +125,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 							this.plugin.settings.urlMode = value as 'standard' | 'premium' | 'custom';
 							this.plugin.settings.serverUrl = getServerUrl(value);
 							input?.setValue(this.plugin.settings.serverUrl);
-							input?.setDisabled((value !== 'custom'));
-							
+							input?.setDisabled(value !== 'custom');
+
 							this.configureAutoCheckDelaySlider(autoCheckDelaySlider, value);
 
 							await this.plugin.saveSettings();
@@ -238,14 +241,15 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 			.setDesc('Length of time to wait for AutoCheck after last key press')
 			.addSlider(component => {
 				autoCheckDelaySlider = component;
-				
-				this.configureAutoCheckDelaySlider(autoCheckDelaySlider, urlDropdown?.getValue());
+				if (urlDropdown) {
+					this.configureAutoCheckDelaySlider(autoCheckDelaySlider, urlDropdown.getValue());
+				}
 
 				component.setValue(this.plugin.settings.autoCheckDelay).onChange(async value => {
 					this.plugin.settings.autoCheckDelay = value;
 					await this.plugin.saveSettings();
 				});
-				
+
 				component.setDynamicTooltip();
 			});
 		new Setting(containerEl)
