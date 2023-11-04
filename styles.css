@@ -54,7 +54,7 @@
   width: 300px;
   line-height: 1.5;
   z-index: var(--layer-popover);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .lt-predictions-container-glass {
@@ -67,6 +67,7 @@
 }
 
 .lt-buttoncontainer:not(:empty) {
+  padding-top: 10px;
 }
 
 .lt-buttoncontainer > button {
@@ -90,18 +91,24 @@
 }
 
 .lt-bottom {
-  padding: 10px 12px 0;
-  display: flex;
-  justify-content: space-between;
+  min-height: 10px;
+  padding-left: 12px;
+  position: relative;
+}
+
+.lt-info-container {
+  position: absolute;
+  right: 0;
+  bottom: 0;
 }
 
 .lt-info-button {
-  padding: 0;
   color: var(--text-faint);  
 }
 
 .lt-info-box {
   position: absolute;
+  right: 0;
   animation-duration: 150ms;
   animation-name: lineInserted;
   font-family: var(--default-font);
@@ -128,7 +135,6 @@
 }
 
 .lt-ignorecontainer {
-  padding-top: 10px;
   display: flex;
 }
 

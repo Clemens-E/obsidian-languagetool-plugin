@@ -62,7 +62,7 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 				});
 			}
 			bottom.createDiv({ cls: 'lt-info-container'}, infoContainer => {
-				infoContainer.createEl('button', { cls: 'lt-info-button' }, button => {
+				infoContainer.createEl('button', { cls: 'lt-info-button clickable-icon' }, button => {
 					setIcon(button, 'info');
 					button.onclick = () => {
 						const popup = document.getElementsByClassName('lt-info-box').item(0);
@@ -79,8 +79,9 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 				})
 
 				infoContainer.createDiv({ cls: 'lt-info-box hidden' }, popup => {
-					popup.createDiv({ cls: 'lt-info', text: `Category: ${category}` });
-					popup.createDiv({ cls: 'lt-info', text: `Rule: ${ruleId}` });
+					// \u00A0 is a non-breaking space
+					popup.createDiv({ cls: 'lt-info', text: `Category:\u00A0${category}` });
+					popup.createDiv({ cls: 'lt-info', text: `Rule:\u00A0${ruleId}` });
 				})
 			});
 		})
