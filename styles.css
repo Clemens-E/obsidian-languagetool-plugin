@@ -67,7 +67,6 @@
 }
 
 .lt-buttoncontainer:not(:empty) {
-  padding: 10px 12px 0;
 }
 
 .lt-buttoncontainer > button {
@@ -88,6 +87,44 @@
 .lt-message {
   padding: 0 12px;
   display: block;
+}
+
+.lt-bottom {
+  padding: 10px 12px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.lt-info-button {
+  padding: 0;
+  color: var(--text-faint);  
+}
+
+.lt-info-box {
+  position: absolute;
+  animation-duration: 150ms;
+  animation-name: lineInserted;
+  font-family: var(--default-font);
+  font-size: 0.93rem;
+  padding: 12px 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  line-height: 1.5;
+  z-index: var(--layer-popover);
+  overflow: hidden;
+}
+
+.hidden {
+  display: none;
+}
+
+.lt-info {
+  padding: 0 12px;
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .lt-ignorecontainer {

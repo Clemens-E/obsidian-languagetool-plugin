@@ -14,10 +14,12 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 		.map(v => v.value)
 		.filter(v => v.trim());
 	const category = match.rule.category.id;
+	const ruleId = match.rule.id;
 
 	const mainClass = plugin.settings.glassBg ? 'lt-predictions-container-glass' : 'lt-predictions-container';
 
 	return createDiv({ cls: [mainClass, getIssueTypeClassName(category)] }, root => {
+
 		if (title) {
 			root.createSpan({ cls: 'lt-title' }, span => {
 				span.createSpan({ text: title });
@@ -38,26 +40,51 @@ function contructTooltip(plugin: LanguageToolPlugin, view: EditorView, underline
 			to: underline.to,
 		});
 
-		if (buttons.length) {
-			root.createDiv({ cls: 'lt-buttoncontainer' }, buttonContainer => {
-				for (const btnText of buttons) {
-					buttonContainer.createEl('button', { text: btnText }, button => {
-						button.onclick = () => {
-							view.dispatch({
-								changes: [
-									{
-										from: underline.from,
-										to: underline.to,
-										insert: btnText,
-									},
-								],
-								effects: [clearUnderlineEffect],
-							});
-						};
-					});
-				}
+		root.createDiv({ cls: 'lt-bottom' }, bottom => {
+			if (buttons.length) {
+				bottom.createDiv({ cls: 'lt-buttoncontainer' }, buttonContainer => {
+					for (const btnText of buttons) {
+						buttonContainer.createEl('button', { text: btnText }, button => {
+							button.onclick = () => {
+								view.dispatch({
+									changes: [
+										{
+											from: underline.from,
+											to: underline.to,
+											insert: btnText,
+										},
+									],
+									effects: [clearUnderlineEffect],
+								});
+							};
+						});
+					}
+				});
+			}
+			bottom.createDiv({ cls: 'lt-info-container'}, infoContainer => {
+				infoContainer.createEl('button', { cls: 'lt-info-button' }, button => {
+					setIcon(button, 'info');
+					button.onclick = () => {
+						const popup = document.getElementsByClassName('lt-info-box').item(0);
+						if (!popup) {
+							throw Error("Programming error: failed to create popup. Please notify the LanguageTool maintainer if this problem persists.")
+						}
+						if (popup.hasClass('hidden')) {
+							popup.removeClass('hidden');
+						} else {
+							popup.addClass('hidden');
+						}
+						
+					};
+				})
+
+				infoContainer.createDiv({ cls: 'lt-info-box hidden' }, popup => {
+					popup.createDiv({ cls: 'lt-info', text: `Category: ${category}` });
+					popup.createDiv({ cls: 'lt-info', text: `Rule: ${ruleId}` });
+				})
 			});
-		}
+		})
+		
 
 		root.createDiv({ cls: 'lt-ignorecontainer' }, container => {
 			container.createEl('button', { cls: 'lt-ignore-btn' }, button => {
