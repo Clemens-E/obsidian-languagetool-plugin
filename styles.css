@@ -132,6 +132,8 @@
   display: block;
   font-size: 0.8rem;
   color: var(--text-muted);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .lt-ignorecontainer {
