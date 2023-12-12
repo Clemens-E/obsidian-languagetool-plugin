@@ -6,7 +6,7 @@ import { LanguageToolPluginSettings } from './SettingsTab';
 
 export const logs: string[] = [];
 
-let lastStatus: string = "ok";
+let lastStatus: 'ok' | 'request-failed' | 'request-not-ok' | 'json-parse-error' = 'ok';
 
 export async function getDetectionResult(
 	text: string,
