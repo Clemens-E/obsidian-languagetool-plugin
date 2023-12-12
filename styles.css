@@ -54,7 +54,7 @@
   width: 300px;
   line-height: 1.5;
   z-index: var(--layer-popover);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .lt-predictions-container-glass {
@@ -67,7 +67,7 @@
 }
 
 .lt-buttoncontainer:not(:empty) {
-  padding: 10px 12px 0;
+  padding-top: 10px;
 }
 
 .lt-buttoncontainer > button {
@@ -90,8 +90,53 @@
   display: block;
 }
 
+.lt-bottom {
+  min-height: 10px;
+  padding-left: 12px;
+  position: relative;
+}
+
+.lt-info-container {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+.lt-info-button {
+  color: var(--text-faint);  
+}
+
+.lt-info-box {
+  position: absolute;
+  right: 0;
+  animation-duration: 150ms;
+  animation-name: lineInserted;
+  font-family: var(--default-font);
+  font-size: 0.93rem;
+  padding: 12px 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  line-height: 1.5;
+  z-index: var(--layer-popover);
+  overflow: hidden;
+}
+
+.hidden {
+  display: none;
+}
+
+.lt-info {
+  padding: 0 12px;
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .lt-ignorecontainer {
-  padding-top: 10px;
   display: flex;
 }
 
