@@ -101,7 +101,7 @@ export async function getDetectionResult(
 	} catch (e) {
 		const status = 'request-failed';
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
-			new Notice(`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`, 0);
+			new Notice(`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`, 3000);
 			lastStatus = status;
 		}
 		return Promise.reject(e);
@@ -111,7 +111,7 @@ export async function getDetectionResult(
 		const status = 'request-not-ok';
 		await pushLogs(res, settings);
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
-			new Notice(`Request to LanguageTool failed\n${res.statusText}Check Plugin Settings for Logs`, 0);
+			new Notice(`Request to LanguageTool failed\n${res.statusText}Check Plugin Settings for Logs`, 3000);
 			lastStatus = status;
 		}
 		return Promise.reject(new Error(`unexpected status ${res.status}, see network tab`));
@@ -123,7 +123,7 @@ export async function getDetectionResult(
 	} catch (e) {
 		const status = 'json-parse-error';
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
-			new Notice(`Error processing response from LanguageTool server`, 0);
+			new Notice(`Error processing response from LanguageTool server`, 3000);
 			lastStatus = status;
 		}
 		return Promise.reject(e);
