@@ -19,8 +19,14 @@ export async function getDetectionResult(
 			if (/^`[^`]+`$/.test(text)) {
 				return text;
 			}
+			const linebreaks = '\n'.repeat(text.match(/\n/g)?.length ?? 0);
 
-			return '\n'.repeat((text.match(/\n/g) || []).length);
+			// Support lists (annotation ends with marker)
+			if (text.match(/^\s*(-|\d+\.) $/m)) {
+				return linebreaks + '• '; // this is the character, the online editor uses
+			}
+
+			return linebreaks;
 		},
 	});
 
