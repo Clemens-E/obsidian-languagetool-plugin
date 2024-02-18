@@ -101,7 +101,10 @@ export async function getDetectionResult(
 	} catch (e) {
 		const status = 'request-failed';
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
-			new Notice(`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`, 3000);
+			new Notice(
+				`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`,
+				3000,
+			);
 			lastStatus = status;
 		}
 		return Promise.reject(e);

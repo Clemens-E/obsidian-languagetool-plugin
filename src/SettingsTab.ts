@@ -16,8 +16,8 @@ const SecondToMillisecondConversion = 1000;
 const StandardMaxRequestsPerMinute = 20;
 const PremiumMaxRequestsPerMinute = 80;
 
-const MaxAutoCheckDelay = 3000;
-const AutoCheckDelayStep = 200;
+const MaxAutoCheckDelay = 5000;
+const AutoCheckDelayStep = 50;
 const MinStandardAutoCheckDelay = (MinuteInSeconds / StandardMaxRequestsPerMinute) * SecondToMillisecondConversion;
 const MinPremiumAutoCheckDelay = (MinuteInSeconds / PremiumMaxRequestsPerMinute) * SecondToMillisecondConversion;
 
@@ -64,7 +64,11 @@ function getServerUrl(value: string) {
 }
 
 function getMinAllowedAutoCheckDelay(value: string) {
-	return value === 'standard' ? MinStandardAutoCheckDelay : value === 'premium' ? MinPremiumAutoCheckDelay : 0;
+	return value === 'standard'
+		? MinStandardAutoCheckDelay
+		: value === 'premium'
+		? MinPremiumAutoCheckDelay
+		: AutoCheckDelayStep;
 }
 
 export class LanguageToolSettingsTab extends PluginSettingTab {
@@ -82,7 +86,6 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 			this.plugin.settings.autoCheckDelay = MinStandardAutoCheckDelay;
 		}
 
-		delaySlider?.setDisabled(value === 'standard');
 		delaySlider?.setLimits(minAllowedAutoCheckDelay, MaxAutoCheckDelay, AutoCheckDelayStep);
 	}
 
