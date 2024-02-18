@@ -7,6 +7,7 @@ import { LanguageToolPluginSettings } from './SettingsTab';
 export const logs: string[] = [];
 
 let lastStatus: 'ok' | 'request-failed' | 'request-not-ok' | 'json-parse-error' = 'ok';
+const listRegex = /^\s*(-|\d+\.) $/m;
 
 export async function getDetectionResult(
 	text: string,
@@ -19,8 +20,14 @@ export async function getDetectionResult(
 			if (/^`[^`]+`$/.test(text)) {
 				return text;
 			}
+			const linebreaks = '\n'.repeat((text.match(/\n/g) || [])?.length ?? 0);
 
-			return '\n'.repeat((text.match(/\n/g) || []).length);
+			// Support lists (annotation ends with marker)
+			if (listRegex.exec(text)) {
+				return `${linebreaks}• `; // this is the character, the online editor uses
+			}
+
+			return linebreaks;
 		},
 	});
 
