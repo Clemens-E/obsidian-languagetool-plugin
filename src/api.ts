@@ -7,6 +7,7 @@ import { LanguageToolPluginSettings } from './SettingsTab';
 export const logs: string[] = [];
 
 let lastStatus: 'ok' | 'request-failed' | 'request-not-ok' | 'json-parse-error' = 'ok';
+const listRegex = /^\s*(-|\d+\.) $/m;
 
 export async function getDetectionResult(
 	text: string,
@@ -19,11 +20,11 @@ export async function getDetectionResult(
 			if (/^`[^`]+`$/.test(text)) {
 				return text;
 			}
-			const linebreaks = '\n'.repeat(text.match(/\n/g)?.length ?? 0);
+			const linebreaks = '\n'.repeat((text.match(/\n/g) || [])?.length ?? 0);
 
 			// Support lists (annotation ends with marker)
-			if (text.match(/^\s*(-|\d+\.) $/m)) {
-				return linebreaks + '• '; // this is the character, the online editor uses
+			if (listRegex.exec(text)) {
+				return `${linebreaks}• `; // this is the character, the online editor uses
 			}
 
 			return linebreaks;
@@ -107,7 +108,10 @@ export async function getDetectionResult(
 	} catch (e) {
 		const status = 'request-failed';
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
-			new Notice(`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`, 3000);
+			new Notice(
+				`Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`,
+				3000,
+			);
 			lastStatus = status;
 		}
 		return Promise.reject(e);
