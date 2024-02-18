@@ -31,6 +31,7 @@ export interface LanguageToolPluginSettings {
 	apikey?: string;
 	username?: string;
 	staticLanguage?: string;
+	motherTongue?: string;
 
 	englishVeriety?: undefined | 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
 	germanVeriety?: undefined | 'de-DE' | 'de-AT' | 'de-CH';
@@ -294,6 +295,27 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 								this.plugin.settings.catalanVeriety = undefined;
 								catalanVarietyDropdown?.setValue('default');
 							}
+							await this.plugin.saveSettings();
+						});
+					})
+					.catch(console.error);
+			});
+
+		new Setting(containerEl)
+			.setName('Mother Tongue')
+			.setDesc(
+				'Set the language you are most comfortable with. This will be used to interpret the language you are writing in',
+			)
+			.addDropdown(component => {
+				this.requestLanguages()
+					.then(languages => {
+						component.addOption('empty', '');
+						languages.forEach(v => component.addOption(v.longCode, v.name));
+
+						component.onChange(async value => {
+							this.plugin.settings.motherTongue = value;
+							component.setValue(this.plugin.settings.motherTongue ?? '');
+
 							await this.plugin.saveSettings();
 						});
 					})

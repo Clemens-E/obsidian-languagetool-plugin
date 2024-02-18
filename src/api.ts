@@ -91,6 +91,10 @@ export async function getDetectionResult(
 		params.language = settings.staticLanguage;
 	}
 
+	if (settings.motherTongue && settings.motherTongue.length > 0) {
+		params.motherTongue = settings.motherTongue;
+	}
+
 	let res: Response;
 	try {
 		res = await fetch(`${settings.serverUrl}/v2/check`, {
