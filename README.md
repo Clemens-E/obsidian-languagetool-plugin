@@ -29,6 +29,9 @@ After installing and enabling the plugin, you can set up three hotkeys (under Se
 
 **LanguageTool tries to auto-detect the language used.** Selecting a specific language (under Settings / Plugin Options / LanguageTool Integration / Static language) is normally not necessary. **This feature enables the user to spellcheck in different languages within the same document** (e.g. a dissertation written in English with quotes in a foreign language), which is ordinarily not possible with the built-in spellcheck function of Obsidian.
 
+### Ignoring Files
+add the tag `lt-ignore` to the frontmatter of a file to ignore it from being spellchecked. All spellchecks, even manual ones, will be ignored.
+
 ## Premium Accounts
 We finally support LanguageTool Premium.
 

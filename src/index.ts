@@ -323,6 +323,12 @@ export default class LanguageToolPlugin extends Plugin {
 	};
 
 	public async runDetection(editor: EditorView, view: MarkdownView, from?: number, to?: number) {
+		// ignore lt-ignore tags
+		const frontmatter = this.app.metadataCache.getFileCache(view.file)?.frontmatter;
+		if (frontmatter?.tags?.includes('lt-ignore')) {
+			return;
+		}
+
 		this.setStatusBarWorking();
 
 		const selection = editor.state.selection.main;
