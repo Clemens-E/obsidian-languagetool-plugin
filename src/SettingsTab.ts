@@ -32,6 +32,8 @@ export interface LanguageToolPluginSettings {
 	username?: string;
 	staticLanguage?: string;
 	motherTongue?: string;
+	customUrl?: string;
+	authHeader?: string;
 
 	englishVeriety?: undefined | 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
 	germanVeriety?: undefined | 'de-DE' | 'de-AT' | 'de-CH';
@@ -128,6 +130,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						.onChange(async value => {
 							this.plugin.settings.urlMode = value as 'standard' | 'premium' | 'custom';
 							this.plugin.settings.serverUrl = getServerUrl(value);
+							this.plugin.settings.customUrl = undefined;
+							this.plugin.settings.authHeader = undefined;
 							input?.setValue(this.plugin.settings.serverUrl);
 							input?.setDisabled(value !== 'custom');
 
@@ -144,6 +148,18 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						.setDisabled(this.plugin.settings.urlMode === 'custom')
 						.onChange(async value => {
 							this.plugin.settings.serverUrl = value.replace(/\/v2\/check\/$/, '').replace(/\/$/, '');
+
+							// If server url is https://user:pass@.../ then save the auth header with basic user and password
+							const urlParts = this.plugin.settings.serverUrl.split('@');
+
+							if (urlParts.length === 2) {
+								const authData = urlParts[0].split('//')[1];
+								const [username, password] = authData.split(':');
+								if (username && password) {
+									this.plugin.settings.customUrl = this.plugin.settings.serverUrl.replace(`${username}:${password}@`, '');
+									this.plugin.settings.authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+								}
+							}
 							await this.plugin.saveSettings();
 						});
 				});

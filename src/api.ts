@@ -95,19 +95,27 @@ export async function getDetectionResult(
 		params.motherTongue = settings.motherTongue;
 	}
 
+	let url = `${settings.serverUrl}/v2/check`;
+	let headers: HeadersInit = {
+		'Content-Type': 'application/x-www-form-urlencoded',
+		Accept: 'application/json',
+	};
+
+	if (settings.urlMode === 'custom' && settings.customUrl && settings.authHeader) {
+		url = `${settings.customUrl}/v2/check`;
+		headers.Authorization = settings.authHeader;
+	}
+
 	let res: Response;
 	try {
-		res = await fetch(`${settings.serverUrl}/v2/check`, {
+		res = await fetch(url, {
 			method: 'POST',
 			body: Object.keys(params)
 				.map(key => {
 					return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
 				})
 				.join('&'),
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-				Accept: 'application/json',
-			},
+			headers: headers,
 		});
 	} catch (e) {
 		const status = 'request-failed';
