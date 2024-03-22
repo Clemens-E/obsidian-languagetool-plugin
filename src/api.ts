@@ -96,7 +96,7 @@ export async function getDetectionResult(
 	}
 
 	let url = `${settings.serverUrl}/v2/check`;
-	let headers: HeadersInit = {
+	const headers: HeadersInit = {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Accept: 'application/json',
 	};

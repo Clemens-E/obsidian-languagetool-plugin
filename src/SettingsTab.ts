@@ -156,8 +156,13 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 								const authData = urlParts[0].split('//')[1];
 								const [username, password] = authData.split(':');
 								if (username && password) {
-									this.plugin.settings.customUrl = this.plugin.settings.serverUrl.replace(`${username}:${password}@`, '');
-									this.plugin.settings.authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+									this.plugin.settings.customUrl = this.plugin.settings.serverUrl.replace(
+										`${username}:${password}@`,
+										'',
+									);
+									this.plugin.settings.authHeader = `Basic ${Buffer.from(`${username}:${password}`).toString(
+										'base64',
+									)}`;
 								}
 							}
 							await this.plugin.saveSettings();
