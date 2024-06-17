@@ -106,9 +106,21 @@ export async function getDetectionResult(
 		headers.Authorization = settings.authHeader;
 	}
 
-	let res: Response;
+	let resEnglish: Response;
+	let resSpanish: Response;
 	try {
-		res = await fetch(url, {
+		params.language = 'en-US';
+		resEnglish = await fetch(url, {
+			method: 'POST',
+			body: Object.keys(params)
+				.map(key => {
+					return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
+				})
+				.join('&'),
+			headers: headers,
+		});
+		params.language = 'es-ES';
+		resSpanish = await fetch(url, {
 			method: 'POST',
 			body: Object.keys(params)
 				.map(key => {
@@ -129,19 +141,71 @@ export async function getDetectionResult(
 		return Promise.reject(e);
 	}
 
-	if (!res.ok) {
+	if (!resEnglish.ok) {
 		const status = 'request-not-ok';
-		await pushLogs(res, settings);
+		await pushLogs(resEnglish, settings);
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
-			new Notice(`Request to LanguageTool failed\n${res.statusText}Check Plugin Settings for Logs`, 3000);
+			new Notice(`Request to LanguageTool failed\n${resEnglish.statusText}Check Plugin Settings for Logs`, 3000);
 			lastStatus = status;
 		}
-		return Promise.reject(new Error(`unexpected status ${res.status}, see network tab`));
+		return Promise.reject(new Error(`unexpected status ${resEnglish.status}, see network tab`));
 	}
 
-	let body: LanguageToolApi;
+	if (!resSpanish.ok) {
+		const status = 'request-not-ok';
+		await pushLogs(resSpanish, settings);
+		if (lastStatus !== status || !settings.shouldAutoCheck) {
+			new Notice(`Request to LanguageTool failed\n${resSpanish.statusText}Check Plugin Settings for Logs`, 3000);
+			lastStatus = status;
+		}
+		return Promise.reject(new Error(`unexpected status ${resSpanish.status}, see network tab`));
+	}
+
+	let bodySpanish: LanguageToolApi;
+	let bodyEnglish: LanguageToolApi;
 	try {
-		body = await res.json();
+		bodySpanish = await resSpanish.json();
+		bodyEnglish = await resEnglish.json();
+
+		if (bodySpanish.matches && bodyEnglish.matches) {
+			for (let i = 0; i < bodySpanish.matches.length; i++) {
+				let match = false;
+				const context = bodySpanish.matches[i].context;
+				const word = context.text.substring(context.offset, context.length);
+				for (const enMatch of bodyEnglish.matches) {
+					if (word === enMatch.context.text.substring(enMatch.context.offset, enMatch.context.length)) {
+						match = true;
+						break;
+					}
+				}
+				if (!match) {
+					const context = bodySpanish.matches[i].context;
+					new Notice(`Sp Removed: ${context.text.substring(context.offset, context.length)}`, 3000);
+					bodySpanish.matches.splice(i, 1);
+					i--;
+				}
+			}
+
+			for (let i = 0; i < bodyEnglish.matches.length; i++) {
+				let match = false;
+				const context = bodyEnglish.matches[i].context;
+				const word = context.text.substring(context.offset, context.length);
+				for (const spMatch of bodySpanish.matches) {
+					if (word === spMatch.context.text.substring(spMatch.context.offset, spMatch.context.length)) {
+						match = true;
+						break;
+					}
+				}
+				if (!match) {
+					const context = bodyEnglish.matches[i].context;
+					new Notice(`En Removed: ${context.text.substring(context.offset, context.length)}`, 3000);
+					bodyEnglish.matches.splice(i, 1);
+					i--;
+				}
+			}
+
+			bodySpanish.matches = bodySpanish.matches.concat(bodyEnglish.matches);
+		}
 	} catch (e) {
 		const status = 'json-parse-error';
 		if (lastStatus !== status || !settings.shouldAutoCheck) {
@@ -157,7 +221,7 @@ export async function getDetectionResult(
 		lastStatus = status;
 	}
 
-	return body;
+	return bodySpanish;
 }
 
 export async function pushLogs(res: Response, settings: LanguageToolPluginSettings): Promise<void> {
