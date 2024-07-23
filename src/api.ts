@@ -58,27 +58,27 @@ export async function getDetectionResult(
 		params.disabledRules = settings.ruleOtherDisabledRules;
 	}
 
-	if (settings.englishVeriety) {
+	if (settings.englishVariety) {
 		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
-			settings.englishVeriety
+			settings.englishVariety
 		}`;
 	}
 
-	if (settings.germanVeriety) {
+	if (settings.germanVariety) {
 		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
-			settings.germanVeriety
+			settings.germanVariety
 		}`;
 	}
 
-	if (settings.portugueseVeriety) {
+	if (settings.portugueseVariety) {
 		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
-			settings.portugueseVeriety
+			settings.portugueseVariety
 		}`;
 	}
 
-	if (settings.catalanVeriety) {
+	if (settings.catalanVariety) {
 		params.preferredVariants = `${params.preferredVariants ? `${params.preferredVariants},` : ''}${
-			settings.catalanVeriety
+			settings.catalanVariety
 		}`;
 	}
 

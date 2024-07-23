@@ -33,10 +33,10 @@ export interface LanguageToolPluginSettings {
 	staticLanguage?: string;
 	motherTongue?: string;
 
-	englishVeriety?: undefined | 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
-	germanVeriety?: undefined | 'de-DE' | 'de-AT' | 'de-CH';
-	portugueseVeriety?: undefined | 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
-	catalanVeriety?: undefined | 'ca-ES' | 'ca-ES-valencia';
+	englishVariety?: undefined | 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
+	germanVariety?: undefined | 'de-DE' | 'de-AT' | 'de-CH';
+	portugueseVariety?: undefined | 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
+	catalanVariety?: undefined | 'ca-ES' | 'ca-ES-valencia';
 
 	pickyMode: boolean;
 
@@ -286,13 +286,13 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 						component.onChange(async value => {
 							this.plugin.settings.staticLanguage = value;
 							if (value !== 'auto') {
-								this.plugin.settings.englishVeriety = undefined;
+								this.plugin.settings.englishVariety = undefined;
 								englishVarietyDropdown?.setValue('default');
-								this.plugin.settings.germanVeriety = undefined;
+								this.plugin.settings.germanVariety = undefined;
 								germanVarietyDropdown?.setValue('default');
-								this.plugin.settings.portugueseVeriety = undefined;
+								this.plugin.settings.portugueseVariety = undefined;
 								portugueseVarietyDropdown?.setValue('default');
-								this.plugin.settings.catalanVeriety = undefined;
+								this.plugin.settings.catalanVariety = undefined;
 								catalanVarietyDropdown?.setValue('default');
 							}
 							await this.plugin.saveSettings();
@@ -338,14 +338,14 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					'en-ZA': 'English (South Africa)',
 					'en-NZ': 'English (New Zealand)',
 				})
-				.setValue(this.plugin.settings.englishVeriety ?? 'default')
+				.setValue(this.plugin.settings.englishVariety ?? 'default')
 				.onChange(async value => {
 					if (value === 'default') {
-						this.plugin.settings.englishVeriety = undefined;
+						this.plugin.settings.englishVariety = undefined;
 					} else {
 						this.plugin.settings.staticLanguage = 'auto';
 						staticLanguageComponent?.setValue('auto');
-						this.plugin.settings.englishVeriety = value as 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
+						this.plugin.settings.englishVariety = value as 'en-US' | 'en-GB' | 'en-CA' | 'en-AU' | 'en-ZA' | 'en-NZ';
 					}
 					await this.plugin.saveSettings();
 				});
@@ -360,14 +360,14 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					'de-CH': 'German (Switzerland)',
 					'de-AT': 'German (Austria)',
 				})
-				.setValue(this.plugin.settings.germanVeriety ?? 'default')
+				.setValue(this.plugin.settings.germanVariety ?? 'default')
 				.onChange(async value => {
 					if (value === 'default') {
-						this.plugin.settings.germanVeriety = undefined;
+						this.plugin.settings.germanVariety = undefined;
 					} else {
 						this.plugin.settings.staticLanguage = 'auto';
 						staticLanguageComponent?.setValue('auto');
-						this.plugin.settings.germanVeriety = value as 'de-DE' | 'de-CH' | 'de-AT';
+						this.plugin.settings.germanVariety = value as 'de-DE' | 'de-CH' | 'de-AT';
 					}
 					await this.plugin.saveSettings();
 				});
@@ -383,14 +383,14 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					'pt-AO': 'Portuguese (Angola)',
 					'pt-MZ': 'Portuguese (Mozambique)',
 				})
-				.setValue(this.plugin.settings.portugueseVeriety ?? 'default')
+				.setValue(this.plugin.settings.portugueseVariety ?? 'default')
 				.onChange(async value => {
 					if (value === 'default') {
-						this.plugin.settings.portugueseVeriety = undefined;
+						this.plugin.settings.portugueseVariety = undefined;
 					} else {
 						this.plugin.settings.staticLanguage = 'auto';
 						staticLanguageComponent?.setValue('auto');
-						this.plugin.settings.portugueseVeriety = value as 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
+						this.plugin.settings.portugueseVariety = value as 'pt-BR' | 'pt-PT' | 'pt-AO' | 'pt-MZ';
 					}
 					await this.plugin.saveSettings();
 				});
@@ -404,14 +404,14 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
 					'ca-ES': 'Catalan',
 					'ca-ES-valencia': 'Catalan (Valencian)',
 				})
-				.setValue(this.plugin.settings.catalanVeriety ?? 'default')
+				.setValue(this.plugin.settings.catalanVariety ?? 'default')
 				.onChange(async value => {
 					if (value === 'default') {
-						this.plugin.settings.catalanVeriety = undefined;
+						this.plugin.settings.catalanVariety = undefined;
 					} else {
 						this.plugin.settings.staticLanguage = 'auto';
 						staticLanguageComponent?.setValue('auto');
-						this.plugin.settings.catalanVeriety = value as 'ca-ES' | 'ca-ES-valencia';
+						this.plugin.settings.catalanVariety = value as 'ca-ES' | 'ca-ES-valencia';
 					}
 					await this.plugin.saveSettings();
 				});
