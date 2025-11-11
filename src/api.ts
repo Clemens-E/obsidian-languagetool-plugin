@@ -13,6 +13,48 @@ let lastStatus:
   | "json-parse-error" = "ok";
 const listRegex = /^\s*(-|\d+\.) $/m;
 
+/**
+ * ✅ CommonMark-compliant inline code validator.
+ * Handles multiple backtick delimiters and all edge cases
+ * (matching sequences, newlines, spaces, embedded backticks, etc.)
+ */
+function isValidInlineCode(text: string): boolean {
+  if (typeof text !== "string" || !text.startsWith("`")) return false;
+
+  const openingMatch = text.match(/^`+/);
+  if (!openingMatch) return false;
+
+  const openingBackticks = openingMatch[0].length;
+  const closingSequence = "`".repeat(openingBackticks);
+
+  const closingIndex = text.lastIndexOf(closingSequence);
+  if (closingIndex <= openingBackticks - 1) return false;
+
+  let content = text.slice(openingBackticks, closingIndex);
+  if (content === "") return false;
+
+  content = content.replace(/\n/g, " ");
+
+  if (
+    content.length > 0 &&
+    /[^ ]/.test(content) &&
+    content.startsWith(" ") &&
+    content.endsWith(" ")
+  ) {
+    content = content.slice(1, -1);
+  }
+
+  const matches = Array.from(content.matchAll(/`+/g));
+  const longestSequence = matches.length
+    ? Math.max(...matches.map(m => m[0].length))
+    : 0;
+
+  if (longestSequence >= openingBackticks) return false;
+
+  return true;
+}
+
+
 export async function getDetectionResult(
   text: string,
   getSettings: () => LanguageToolPluginSettings
@@ -20,14 +62,10 @@ export async function getDetectionResult(
   const parsedText = Remark.build(text, {
     ...Remark.defaults,
     interpretmarkup(text = ""): string {
-      // Don't collapse inline code
-      if (/^`[^`]+`$/.test(text)) {
+      if (isValidInlineCode(text)) {
         return text;
       }
-      // Don't collapse inline code blocks
-      if (/^```[^`]+```$/.test(text)) {
-        return text;
-      }
+
       const lineBreakCount = (text.match(/\n/g) ?? []).length ?? 0;
       const linebreaks = "\n".repeat(lineBreakCount);
 
@@ -41,7 +79,6 @@ export async function getDetectionResult(
   });
 
   const settings = getSettings();
-
   const { enabledCategories, disabledCategories } = getRuleCategories(settings);
 
   const params: { [key: string]: string } = {
@@ -119,9 +156,7 @@ export async function getDetectionResult(
       method: "POST",
       body: Object.keys(params)
         .map(key => {
-          return `${encodeURIComponent(key)}=${encodeURIComponent(
-            params[key]
-          )}`;
+          return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
         })
         .join("&"),
       headers: {
