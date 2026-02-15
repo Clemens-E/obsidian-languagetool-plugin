@@ -54,7 +54,6 @@ function isValidInlineCode(text: string): boolean {
   return true;
 }
 
-
 export async function getDetectionResult(
   text: string,
   getSettings: () => LanguageToolPluginSettings
@@ -156,7 +155,9 @@ export async function getDetectionResult(
       method: "POST",
       body: Object.keys(params)
         .map(key => {
-          return `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
+          return `${encodeURIComponent(key)}=${encodeURIComponent(
+            params[key]
+          )}`;
         })
         .join("&"),
       headers: {

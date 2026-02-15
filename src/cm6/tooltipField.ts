@@ -153,6 +153,10 @@ function getTooltip(
     return [];
   }
 
+  // Don't show tooltip when user is selecting text (fixes #120)
+  const selection = state.selection.main;
+  const isSelectingText = selection.from !== selection.to;
+
   let primaryUnderline: UnderlineEffect | null = null;
 
   underlines.between(
@@ -170,6 +174,15 @@ function getTooltip(
 
   if (primaryUnderline !== null) {
     const { from, to } = primaryUnderline as UnderlineEffect;
+
+    // Don't show tooltip when user is actively selecting text that doesn't match the underline (fixes #120)
+    if (isSelectingText) {
+      const matchesUnderline = selection.from === from && selection.to === to;
+
+      if (!matchesUnderline) {
+        return [];
+      }
+    }
 
     if (tooltips.length) {
       const tooltip = tooltips[0];
@@ -205,7 +218,14 @@ function getTooltip(
 export function buildTooltipField(plugin: LanguageToolPlugin) {
   return StateField.define<readonly Tooltip[]>({
     create: state => getTooltip([], plugin, state),
-    update: (tooltips, tr) => getTooltip(tooltips, plugin, tr.state),
+    update: (tooltips, tr) => {
+      // Close tooltip when document changes to prevent stale positions
+      // from being used when applying suggestions (fixes #92)
+      if (tr.docChanged) {
+        return [];
+      }
+      return getTooltip(tooltips, plugin, tr.state);
+    },
     provide: f => showTooltip.computeN([f], state => state.field(f))
   });
 }

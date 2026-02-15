@@ -136,7 +136,8 @@ export default class LanguageToolPlugin extends Plugin {
       editorCheckCallback: (checking, editor) => {
         // @ts-expect-error, not typed
         const editorView = editor.cm as EditorView;
-        const cursorOffset = editor.posToOffset(editor.getCursor());
+        // Use "to" to search after the current selection end (fixes #130)
+        const cursorOffset = editor.posToOffset(editor.getCursor("to"));
         let firstMatch: { from: number; to: number } | null = null;
         editorView.state
           .field(underlineField)
@@ -154,7 +155,9 @@ export default class LanguageToolPlugin extends Plugin {
         // ts cant handle that the variable gets assigned in a callback
         editorView.dispatch({
           // @ts-expect-error 2339
-          selection: { anchor: firstMatch.from, head: firstMatch.to }
+          selection: { anchor: firstMatch.from, head: firstMatch.to },
+          // Scroll to make the suggestion visible (fixes #130)
+          scrollIntoView: true
         });
       }
     });
@@ -182,7 +185,9 @@ export default class LanguageToolPlugin extends Plugin {
         // ts cant handle that the variable gets assigned in a callback
         editorView.dispatch({
           // @ts-expect-error 2339
-          selection: { anchor: lastMatch.from, head: lastMatch.to }
+          selection: { anchor: lastMatch.from, head: lastMatch.to },
+          // Scroll to make the suggestion visible
+          scrollIntoView: true
         });
       }
     });

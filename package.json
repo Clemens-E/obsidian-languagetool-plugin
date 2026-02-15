@@ -4,7 +4,7 @@
   "description": "An Obsidian plugin that provides grammar and spell checking through LanguageTool integration",
   "main": "main.js",
   "scripts": {
-    "dev": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.local.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "lint": "eslint . --ext .ts",
     "slint": "stylelint **/*.css",
@@ -36,7 +36,7 @@
     "@typescript-eslint/eslint-plugin": "5.29.0",
     "@typescript-eslint/parser": "5.29.0",
     "builtin-modules": "3.3.0",
-    "esbuild": "0.17.3",
+    "esbuild": "0.25.5",
     "eslint": "^7.1.0",
     "eslint-config-marine": "8.1.0",
     "eslint-config-prettier": "^6.10.0",
@@ -47,12 +47,18 @@
     "stylelint": "^13.12.0",
     "stylelint-config-standard": "^21.0.0",
     "stylelint-prettier": "^1.2.0",
+    "eslint-plugin-obsidianmd": "0.1.9",
+    "globals": "14.0.0",
     "tslib": "2.4.0",
-    "typescript": "4.7.4"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "8.35.1",
+    "@eslint/js": "9.30.1",
+    "jiti": "2.6.1"
   },
   "dependencies": {
     "annotatedtext-remark": "^1.0.10",
-    "quick-lru": "^6.0.0"
+    "quick-lru": "^6.0.0",
+    "obsidian": "latest"
   },
   "stylelint": {
     "extends": "stylelint-config-standard"
