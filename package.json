@@ -57,8 +57,7 @@
   },
   "dependencies": {
     "annotatedtext-remark": "^1.0.10",
-    "quick-lru": "^6.0.0",
-    "obsidian": "latest"
+    "quick-lru": "^6.0.0"
   },
   "stylelint": {
     "extends": "stylelint-config-standard"
