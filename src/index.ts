@@ -345,7 +345,9 @@ export default class LanguageToolPlugin extends Plugin {
 
     this.setStatusBarWorking();
 
-    const selection = editor.state.selection.main;
+    const state = editor.state;
+    const selection = state.selection.main;
+    const currentDoc = state.doc;
 
     let text = view.data;
     let offset = 0;
@@ -359,7 +361,7 @@ export default class LanguageToolPlugin extends Plugin {
     }
 
     if (from !== undefined && to !== undefined) {
-      text = editor.state.sliceDoc(from, to);
+      text = state.sliceDoc(from, to);
       offset = from;
       rangeFrom = from;
       rangeTo = to;
@@ -378,6 +380,14 @@ export default class LanguageToolPlugin extends Plugin {
       } catch (e) {
         this.setStatusBarReady();
         return Promise.reject(e);
+      }
+
+      // Avoid updating the underlines if the document has changed.
+      // As the CodeMirror state is immutable, we can directly compare
+      // the text objects.
+      if (currentDoc !== editor.state.doc) {
+        this.setStatusBarReady();
+        return;
       }
     }
 
