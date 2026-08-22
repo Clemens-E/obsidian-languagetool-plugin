@@ -1,8 +1,9 @@
 name: E2E Tests
 
-# Manual trigger only
+# Runs on manual trigger, or as a gate inside the release workflow
 on:
   workflow_dispatch:
+  workflow_call:
 
 env:
   # appVersion/installerVersion pairs: the oldest supported Obsidian
