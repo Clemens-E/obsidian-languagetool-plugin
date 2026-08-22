@@ -1,4 +1,12 @@
-import { Command, MarkdownView, Menu, Notice, Plugin, setIcon } from "obsidian";
+import {
+  Command,
+  MarkdownView,
+  Menu,
+  Notice,
+  Plugin,
+  requireApiVersion,
+  setIcon
+} from "obsidian";
 import { Decoration, EditorView } from "@codemirror/view";
 import { StateEffect } from "@codemirror/state";
 import QuickLRU from "quick-lru";
@@ -519,7 +527,10 @@ export default class LanguageToolPlugin extends Plugin {
    * fall back to storing credentials in data.json).
    */
   public isSecretStorageAvailable(): boolean {
-    return Boolean(this.app.secretStorage);
+    if (requireApiVersion("1.11.4")) {
+      return Boolean(this.app.secretStorage);
+    }
+    return false;
   }
 
   /**
@@ -531,6 +542,7 @@ export default class LanguageToolPlugin extends Plugin {
   public getCredentials(): LanguageToolApiCredentials {
     const username = this.settings.username;
     if (
+      requireApiVersion("1.11.4") &&
       this.settings.apiKeyStorage === "secret" &&
       this.isSecretStorageAvailable() &&
       this.settings.apikeySecretName
@@ -555,7 +567,7 @@ export default class LanguageToolPlugin extends Plugin {
     if (!this.isSecretStorageAvailable()) {
       return;
     }
-    if (this.settings.apikey) {
+    if (requireApiVersion("1.11.4") && this.settings.apikey) {
       const name = this.settings.apikeySecretName ?? DEFAULT_APIKEY_SECRET_NAME;
       this.app.secretStorage.setSecret(name, this.settings.apikey);
       this.settings.apikeySecretName = name;
@@ -577,7 +589,11 @@ export default class LanguageToolPlugin extends Plugin {
    * without recovering any key value on this one.
    */
   public async disableSecretStorage(): Promise<boolean> {
-    if (this.settings.apikeySecretName && this.isSecretStorageAvailable()) {
+    if (
+      requireApiVersion("1.11.4") &&
+      this.settings.apikeySecretName &&
+      this.isSecretStorageAvailable()
+    ) {
       const value = this.app.secretStorage.getSecret(
         this.settings.apikeySecretName
       );

@@ -9,7 +9,8 @@ import {
   SettingDefinitionItem,
   SliderComponent,
   TextComponent,
-  requestUrl
+  requestUrl,
+  requireApiVersion
 } from "obsidian";
 import LanguageToolPlugin from ".";
 import { logs } from "./api";
@@ -248,7 +249,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
   // storage mode). Obsidian 1.13+ re-renders declaratively via update();
   // older versions re-run the imperative fallback.
   private rerender(): void {
-    if (typeof this.update === "function") {
+    if (requireApiVersion("1.13.0")) {
       this.update();
     } else {
       this.display();
@@ -358,7 +359,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
             const useSecretStorage =
               this.plugin.settings.apiKeyStorage === "secret" &&
               this.plugin.isSecretStorageAvailable();
-            if (useSecretStorage) {
+            if (requireApiVersion("1.11.4") && useSecretStorage) {
               setting
                 .setDesc(
                   "Select or create a secret in Obsidian's SecretStorage. Stored encrypted on this device only."
