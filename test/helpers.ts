@@ -1,4 +1,5 @@
 import { browser, expect } from "@wdio/globals";
+import { env } from "node:process";
 
 export const PLUGIN_ID = "obsidian-languagetool-plugin";
 
@@ -61,6 +62,24 @@ export async function getSetting<T>(key: string): Promise<T> {
           .settings[k],
       key
     ) as Promise<T>
+  );
+}
+
+// Point the plugin at a self-hosted LanguageTool server when the environment
+// provides one. CI uses this to avoid the public API's per-IP rate limit,
+// which shared GitHub runner IPs exhaust quickly.
+export async function useEnvLanguageToolServer(): Promise<void> {
+  const url = env.LANGUAGETOOL_URL;
+  if (!url) return;
+  await browser.executeObsidian(
+    ({ app }, serverUrl: string) => {
+      const settings = (app as any).plugins.plugins[
+        "obsidian-languagetool-plugin"
+      ].settings;
+      settings.urlMode = "custom";
+      settings.serverUrl = serverUrl;
+    },
+    url
   );
 }
 

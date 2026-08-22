@@ -1,9 +1,14 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { useEnvLanguageToolServer } from "../helpers";
 
 const PLUGIN_ID = "obsidian-languagetool-plugin";
 
 describe("LanguageTool plugin", function() {
+  before(async function() {
+    await useEnvLanguageToolServer();
+  });
+
   it("loads and is enabled", async function() {
     const loaded = await browser.executeObsidian(({ app }) =>
       Boolean((app as any).plugins.plugins["obsidian-languagetool-plugin"])

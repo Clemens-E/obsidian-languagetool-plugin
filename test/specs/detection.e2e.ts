@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { useEnvLanguageToolServer } from "../helpers";
 
 const PLUGIN_ID = "obsidian-languagetool-plugin";
 
@@ -34,6 +35,14 @@ async function checkText(): Promise<void> {
 }
 
 describe("Detection and suggestions", function() {
+  // The public LanguageTool API rate-limits per IP; one retry rides out a
+  // throttled request without masking real regressions
+  this.retries(1);
+
+  before(async function() {
+    await useEnvLanguageToolServer();
+  });
+
   beforeEach(async function() {
     // Close all editors so no underline state or buffer survives, then
     // restore the vault files

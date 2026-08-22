@@ -1,6 +1,11 @@
 import { browser } from "@wdio/globals";
+import { useEnvLanguageToolServer } from "../helpers";
 
 describe("Multi-pane auto-check", function() {
+  before(async function() {
+    await useEnvLanguageToolServer();
+  });
+
   after(async function() {
     await browser.executeObsidian(({ app }) => {
       (app as any).plugins.plugins["obsidian-languagetool-plugin"].settings

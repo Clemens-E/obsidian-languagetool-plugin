@@ -12,6 +12,13 @@ env:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    services:
+      # Self-hosted LanguageTool keeps the tests off the public API, whose
+      # per-IP rate limit shared GitHub runners exhaust quickly
+      languagetool:
+        image: erikvl87/languagetool:latest
+        ports:
+          - 8010:8010
     steps:
       - uses: actions/checkout@v4
 
@@ -48,7 +55,19 @@ jobs:
           path: .obsidian-cache
           key: obsidian-cache-${{ hashFiles('obsidian-versions-lock.txt') }}
 
+      - name: Wait for LanguageTool to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS "http://localhost:8010/v2/languages" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "LanguageTool server did not become ready" >&2
+          exit 1
+
       - name: Run e2e tests
         run: yarn test:e2e
         env:
           WDIO_MAX_INSTANCES: "2"
+          LANGUAGETOOL_URL: http://localhost:8010
