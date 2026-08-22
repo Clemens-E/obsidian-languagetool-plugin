@@ -2,10 +2,7 @@
 
 This is a plugin for [Obsidian.md](https://obsidian.md) that integrates [LanguageTool](https://languagetool.org/) to provide advanced Grammar and Spell Checking.
 
-> ***⚠️ This Plugin is in maintenance mode***   
-> It does everything I want it to do, unless it breaks I do not have intentions to update it further.  
-> Feel free to open Issues/Suggestions but please understand that I'm devoting my free time to other things.  
-> You are however welcome to create Pull Request and I will review/merge them and release new versions accordingly.
+> **A note on AI usage:** I use Claude during development. It lets me build features and fixes faster than my free time would otherwise allow. Every change is still reviewed by me before it is released. If you are not comfortable with AI-assisted code, that's a fair position, and you should simply not use this plugin.
 
 Note: if you are worried about the privacy of your notes you should selfhost languagetool, whether it be locally on your pc or on a server
 [Docker Image](https://hub.docker.com/r/erikvl87/languagetool)
@@ -41,6 +38,23 @@ To use the premium features, you (obviously) need a Premium Account, and an API 
 You can generate your API key at https://languagetool.org/editor/settings/access-tokens
 
 Configure your email, API key, and the new URL (https://api.languagetoolplus.com) in the plugin settings
+
+### API key storage: synced plaintext vs. secure storage
+
+On Obsidian 1.11.4 and newer, the plugin can keep your API key in Obsidian's encrypted [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage) instead of in plaintext in the plugin's `data.json`. Fresh installs use SecretStorage automatically when available; existing setups keep their plaintext key until you enable **"Store API key securely (this device only)"** in the plugin settings, which moves the key into a secret and removes it from `data.json`. Your username/email is not a secret and always stays in the synced settings.
+
+**Upsides of secure storage**
+
+- The key is stored encrypted by Obsidian instead of as plaintext in `.obsidian/plugins/obsidian-languagetool-plugin/data.json`, so vault backups, Git-synced vaults, and sync services never see it.
+- The synced settings only contain the *name* of the secret, never the key itself.
+- Secrets can be shared across plugins: several plugins can reference the same secret, so a rotated key only needs to be updated in one place.
+
+**Downsides / trade-offs**
+
+- Secrets are device-local and do not sync. You have to enter the API key once on every device you use.
+- It requires Obsidian 1.11.4 or newer. On older devices the plugin falls back to a plaintext key field; a key entered there is automatically moved into the secret the next time the vault is opened on a device that supports SecretStorage.
+- Turning secure storage off copies the key back into `data.json` (plaintext, synced). This is only possible on a device where the secret is actually set. On other devices the plugin refuses the switch, so the key reference is not lost for the device that holds it.
+- Obsidian has no API to delete secrets, so switching back to plaintext leaves the no-longer-referenced secret in SecretStorage; you can manage secrets in Obsidian's own settings.
 
 ## Manually installing the plugin
 
