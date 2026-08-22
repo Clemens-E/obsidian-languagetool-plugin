@@ -5,10 +5,16 @@ import QuickLRU from "quick-lru";
 import {
   DEFAULT_SETTINGS,
   LanguageToolPluginSettings,
-  LanguageToolSettingsTab
+  LanguageToolSettingsTab,
+  getServerUrl
 } from "./SettingsTab";
 import { LanguageToolApi, MatchesEntity } from "./LanguageToolTypings";
-import { hashString, getVisibleReplacements } from "./helpers";
+import {
+  hashString,
+  getVisibleReplacements,
+  normalizeServerUrl,
+  buildNfcOffsetMap
+} from "./helpers";
 import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
 import {
@@ -43,7 +49,9 @@ export default class LanguageToolPlugin extends Plugin {
       !unmodifiedSettings.urlMode ||
       unmodifiedSettings.urlMode.length === 0
     ) {
-      const { serverUrl } = this.settings;
+      // Compare against the normalized URL so stray API path suffixes do
+      // not misclassify an official endpoint as a custom server
+      const serverUrl = normalizeServerUrl(this.settings.serverUrl);
       this.settings.urlMode =
         serverUrl === "https://api.languagetool.org"
           ? "standard"
@@ -62,15 +70,17 @@ export default class LanguageToolPlugin extends Plugin {
       }
     }
 
-    if (this.settings.serverUrl.includes("/v2/check")) {
-      new Notice(
-        "invalid or outdated LanguageTool Settings, I'm trying to fix it.\nIf it does not work, simply reinstall the plugin",
-        10000
-      );
-      this.settings.serverUrl = this.settings.serverUrl.replace(
-        "/v2/check",
-        ""
-      );
+    // The standard and premium endpoints have fixed URLs, and custom URLs
+    // must be the bare origin because the plugin appends /v2/check itself.
+    // Repair stored values that deviate, since the URL field is only
+    // editable in custom mode (#143)
+    const repairedServerUrl =
+      this.settings.urlMode === "standard" ||
+      this.settings.urlMode === "premium"
+        ? getServerUrl(this.settings.urlMode)
+        : normalizeServerUrl(this.settings.serverUrl);
+    if (repairedServerUrl !== this.settings.serverUrl) {
+      this.settings.serverUrl = repairedServerUrl;
       try {
         await this.saveSettings();
       } catch (e) {
@@ -403,6 +413,15 @@ export default class LanguageToolPlugin extends Plugin {
       isRange = true;
     }
 
+    // LanguageTool counts offsets in NFC text; send NFC and translate the
+    // matches back to positions in the possibly-decomposed document (#131)
+    const nfcOffsetMap = buildNfcOffsetMap(text);
+    if (nfcOffsetMap) {
+      text = text.normalize("NFC");
+    }
+    const toDocOffset = (pos: number) =>
+      nfcOffsetMap ? nfcOffsetMap[pos] ?? pos : pos;
+
     const hash = hashString(text);
 
     let res: LanguageToolApi;
@@ -445,8 +464,8 @@ export default class LanguageToolPlugin extends Plugin {
 
     if (res.matches) {
       for (const match of res.matches) {
-        const start = match.offset + offset;
-        const end = match.offset + offset + match.length;
+        const start = toDocOffset(match.offset) + offset;
+        const end = toDocOffset(match.offset + match.length) + offset;
 
         effects.push(
           addUnderline.of({

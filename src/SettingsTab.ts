@@ -12,6 +12,7 @@ import {
 } from "obsidian";
 import LanguageToolPlugin from ".";
 import { logs } from "./api";
+import { normalizeServerUrl } from "./helpers";
 
 const MinuteInSeconds = 60;
 const SecondToMillisecondConversion = 1000;
@@ -76,7 +77,7 @@ export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
   pickyMode: false
 };
 
-function getServerUrl(value: string) {
+export function getServerUrl(value: string) {
   return value === "standard"
     ? "https://api.languagetool.org"
     : value === "premium"
@@ -256,9 +257,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
             .setValue(this.plugin.settings.serverUrl)
             .setDisabled(this.plugin.settings.urlMode !== "custom")
             .onChange(async value => {
-              this.plugin.settings.serverUrl = value
-                .replace(/\/v2\/check\/$/, "")
-                .replace(/\/$/, "");
+              this.plugin.settings.serverUrl = normalizeServerUrl(value);
               this.languagesPromise = undefined;
               await this.plugin.saveSettings();
             });

@@ -56,6 +56,54 @@ describe("Settings tab", function() {
     expect(await getSetting<string>("serverUrl")).toBe(STANDARD_URL);
   });
 
+  it("strips API path suffixes from a custom endpoint URL (#143)", async function() {
+    await openPluginSettings();
+    const endpoint = settingItem("Endpoint");
+    await endpoint.$("select").selectByAttribute("value", "custom");
+    const urlInput = endpoint.$('input[type="text"]');
+
+    // The plugin appends /v2/check itself, so a URL copied with the API
+    // path must be reduced to the bare origin
+    for (const typed of [
+      "https://example.com/v2/check",
+      "https://example.com/v2/check/",
+      "https://example.com/v2",
+      "https://example.com/"
+    ]) {
+      await urlInput.setValue(typed);
+      expect(await getSetting<string>("serverUrl")).toBe(
+        "https://example.com"
+      );
+    }
+  });
+
+  it("repairs a stored premium URL carrying a stale /v2 suffix (#143)", async function() {
+    // A stored serverUrl with an /v2 suffix makes every request hit
+    // /v2/v2/check (404), and outside custom mode the URL field is not
+    // editable, so the plugin must repair the value on load
+    await browser.executeObsidian(async ({ app }) => {
+      const plugins = (app as any).plugins;
+      const plugin = plugins.plugins["obsidian-languagetool-plugin"];
+      plugin.settings.urlMode = "premium";
+      plugin.settings.serverUrl = "https://api.languagetoolplus.com/v2";
+      await plugin.saveSettings();
+      await plugins.disablePlugin("obsidian-languagetool-plugin");
+      await plugins.enablePlugin("obsidian-languagetool-plugin");
+    });
+
+    expect(await getSetting<string>("urlMode")).toBe("premium");
+    expect(await getSetting<string>("serverUrl")).toBe(PREMIUM_URL);
+
+    await browser.executeObsidian(async ({ app }) => {
+      const plugin = (app as any).plugins.plugins[
+        "obsidian-languagetool-plugin"
+      ];
+      plugin.settings.urlMode = "standard";
+      plugin.settings.serverUrl = "https://api.languagetool.org";
+      await plugin.saveSettings();
+    });
+  });
+
   it("clamps the autocheck delay to the endpoint's minimum", async function() {
     await openPluginSettings();
     const dropdown = settingItem("Endpoint").$("select");

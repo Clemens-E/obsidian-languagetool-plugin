@@ -208,6 +208,44 @@ describe("Detection and suggestions", function() {
     await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
   });
 
+  it("underlines whole words containing umlauts (#131)", async function() {
+    await obsidianPage.openFile("UmlautNFC.md");
+    await checkText();
+
+    const underlined = await browser
+      .$$(`${ACTIVE} .lt-underline`)
+      .map(el => el.getText());
+    expect(underlined.map(t => t.normalize("NFC"))).toEqual(["schöönes"]);
+  });
+
+  it("underlines whole words in decomposed Unicode text (#131)", async function() {
+    // Same sentence as UmlautNFC.md but with umlauts stored decomposed
+    // (base letter plus combining mark), as text originating on macOS
+    // often is; the misspelled word must still be underlined exactly
+    await obsidianPage.openFile("UmlautNFD.md");
+    await checkText();
+
+    const underlined = await browser
+      .$$(`${ACTIVE} .lt-underline`)
+      .map(el => el.getText());
+    expect(underlined.map(t => t.normalize("NFC"))).toEqual(["schöönes"]);
+  });
+
+  it("applies a suggestion inside a callout (#65)", async function() {
+    await obsidianPage.openFile("Callout.md");
+    // Live preview renders callouts as widgets; the source (and with it the
+    // underline) is only shown while the cursor is inside
+    await setCursorInWord("sentense");
+    await checkText();
+
+    await browser.$(`${ACTIVE} .lt-underline`).click();
+    const suggestion = browser.$(`${ACTIVE} .lt-buttoncontainer button`);
+    await expect(suggestion).toExist();
+    await suggestion.click();
+
+    expect(await getEditorText()).toContain("sentence");
+  });
+
   // Keep this test last: the added word suppresses every later "sentense"
   // underline in this Obsidian instance
   it("adds a typo to the personal dictionary", async function() {
