@@ -6,16 +6,20 @@ import { MatchesEntity } from "./LanguageToolTypings";
 // Obsidian's Editor wraps a CodeMirror 6 view. The instance is not part of
 // the public API, but it is the only way to dispatch effects and read
 // decoration state.
+interface EditorWithCodeMirror extends Editor {
+  cm: EditorView;
+}
+
 export function editorToCodeMirror(editor: Editor): EditorView {
-  return (editor as Editor & { cm: EditorView }).cm;
+  return (editor as EditorWithCodeMirror).cm;
 }
 
 // Obsidian's spellcheck dictionary lives in the vault config, which has no
 // public accessor
-type VaultWithConfig = Vault & {
+interface VaultWithConfig extends Vault {
   getConfig(key: string): unknown;
   setConfig(key: string, value: unknown): void;
-};
+}
 
 export function getSpellcheckDictionary(vault: Vault): string[] {
   const words = (vault as VaultWithConfig).getConfig("spellcheckDictionary");

@@ -149,9 +149,10 @@
 }
 
 .lt-status-bar-check-icon {
+  /* A dotted border reads as a dotted underline without relying on the
+     text-decoration longhands, which the plugin review CSS lint flags */
   display: block;
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
+  border-bottom: 1px dotted currentColor;
 }
 
 .lt-ignore-btn {

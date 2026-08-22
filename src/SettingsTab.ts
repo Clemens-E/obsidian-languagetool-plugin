@@ -153,8 +153,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
   }
 
   private configureAutoCheckDelaySlider(
-    delaySlider: SliderComponent | null,
-    value: string
+    value: string,
+    delaySlider?: SliderComponent
   ) {
     const minAllowedAutoCheckDelay = getMinAllowedAutoCheckDelay(value);
 
@@ -204,9 +204,9 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
    */
   private maybeWarnNonPremium(
     hasKey: boolean,
-    urlDropdown: DropdownComponent | null,
     onAcknowledge: () => void,
-    disableUrlPopup: boolean
+    disableUrlPopup: boolean,
+    urlDropdown?: DropdownComponent
   ): void {
     if (
       !hasKey ||
@@ -259,14 +259,20 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
   private getSections(): SettingsSection[] {
     // Shared by the render callbacks of one render cycle: some settings
     // reconfigure others (endpoint changes clamp the delay slider and reset
-    // the variety dropdowns)
-    let urlDropdown: DropdownComponent | null = null;
-    let autoCheckDelaySlider: SliderComponent | null = null;
-    let staticLanguageComponent: DropdownComponent | null = null;
-    let englishVarietyDropdown: DropdownComponent | null = null;
-    let germanVarietyDropdown: DropdownComponent | null = null;
-    let portugueseVarietyDropdown: DropdownComponent | null = null;
-    let catalanVarietyDropdown: DropdownComponent | null = null;
+    // the variety dropdowns). Optional properties rather than nullable
+    // unions: the plugin review scanner lints without dependencies, where
+    // imported types resolve to the error type and any union containing
+    // them is flagged.
+    const refs: {
+      urlDropdown?: DropdownComponent;
+      endpointInput?: TextComponent;
+      autoCheckDelaySlider?: SliderComponent;
+      staticLanguageComponent?: DropdownComponent;
+      englishVarietyDropdown?: DropdownComponent;
+      germanVarietyDropdown?: DropdownComponent;
+      portugueseVarietyDropdown?: DropdownComponent;
+      catalanVarietyDropdown?: DropdownComponent;
+    } = {};
     let disableUrlPopup = false;
 
     const mainSection: SettingsSection = {
@@ -294,9 +300,8 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           desc: "Endpoint that will be used to make requests to",
           render: setting => {
             setting.controlEl.addClass("lt-settings-endpoint-control");
-            let input: TextComponent | null = null;
             setting.addDropdown(component => {
-              urlDropdown = component;
+              refs.urlDropdown = component;
               component
                 .addOptions({
                   standard: "(Standard) api.languagetool.org",
@@ -311,19 +316,19 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                     | "custom";
                   this.plugin.settings.serverUrl = getServerUrl(value);
                   this.languagesPromise = undefined;
-                  input?.setValue(this.plugin.settings.serverUrl);
-                  input?.setDisabled(value !== "custom");
+                  refs.endpointInput?.setValue(this.plugin.settings.serverUrl);
+                  refs.endpointInput?.setDisabled(value !== "custom");
 
                   this.configureAutoCheckDelaySlider(
-                    autoCheckDelaySlider,
-                    value
+                    value,
+                    refs.autoCheckDelaySlider
                   );
 
                   await this.plugin.saveSettings();
                 });
             });
             setting.addText(text => {
-              input = text;
+              refs.endpointInput = text;
               text
                 .setPlaceholder("https://your-custom-url.com")
                 .setValue(this.plugin.settings.serverUrl)
@@ -372,11 +377,11 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                       await this.plugin.saveSettings();
                       this.maybeWarnNonPremium(
                         value.length > 0,
-                        urlDropdown,
                         () => {
                           disableUrlPopup = true;
                         },
-                        disableUrlPopup
+                        disableUrlPopup,
+                        refs.urlDropdown
                       );
                     })
                 );
@@ -392,11 +397,11 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                 text.inputEl.addEventListener("blur", () => {
                   this.maybeWarnNonPremium(
                     Boolean(this.plugin.settings.apikey),
-                    urlDropdown,
                     () => {
                       disableUrlPopup = true;
                     },
-                    disableUrlPopup
+                    disableUrlPopup,
+                    refs.urlDropdown
                   );
                 });
               });
@@ -476,10 +481,10 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           desc: "Length of time to wait for AutoCheck after last key press",
           render: setting => {
             setting.addSlider(component => {
-              autoCheckDelaySlider = component;
+              refs.autoCheckDelaySlider = component;
               this.configureAutoCheckDelaySlider(
-                component,
-                this.plugin.settings.urlMode
+                this.plugin.settings.urlMode,
+                component
               );
 
               component
@@ -514,20 +519,20 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
             "Set a static language that will always be used (LanguageTool tries to auto detect the language, this is usually not necessary)",
           render: setting => {
             setting.addDropdown(component => {
-              staticLanguageComponent = component;
+              refs.staticLanguageComponent = component;
               component.addOption("auto", "Auto Detect");
               component.setValue(this.plugin.settings.staticLanguage ?? "auto");
               component.onChange(async value => {
                 this.plugin.settings.staticLanguage = value;
                 if (value !== "auto") {
                   this.plugin.settings.englishVeriety = undefined;
-                  englishVarietyDropdown?.setValue("default");
+                  refs.englishVarietyDropdown?.setValue("default");
                   this.plugin.settings.germanVeriety = undefined;
-                  germanVarietyDropdown?.setValue("default");
+                  refs.germanVarietyDropdown?.setValue("default");
                   this.plugin.settings.portugueseVeriety = undefined;
-                  portugueseVarietyDropdown?.setValue("default");
+                  refs.portugueseVarietyDropdown?.setValue("default");
                   this.plugin.settings.catalanVeriety = undefined;
-                  catalanVarietyDropdown?.setValue("default");
+                  refs.catalanVarietyDropdown?.setValue("default");
                 }
                 await this.plugin.saveSettings();
               });
@@ -588,7 +593,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           name: "Interpret English as",
           render: setting => {
             setting.addDropdown(component => {
-              englishVarietyDropdown = component;
+              refs.englishVarietyDropdown = component;
               component
                 .addOptions({
                   default: "---",
@@ -605,7 +610,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                     this.plugin.settings.englishVeriety = undefined;
                   } else {
                     this.plugin.settings.staticLanguage = "auto";
-                    staticLanguageComponent?.setValue("auto");
+                    refs.staticLanguageComponent?.setValue("auto");
                     this.plugin.settings.englishVeriety = value as
                       | "en-US"
                       | "en-GB"
@@ -623,7 +628,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           name: "Interpret German as",
           render: setting => {
             setting.addDropdown(component => {
-              germanVarietyDropdown = component;
+              refs.germanVarietyDropdown = component;
               component
                 .addOptions({
                   default: "---",
@@ -637,7 +642,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                     this.plugin.settings.germanVeriety = undefined;
                   } else {
                     this.plugin.settings.staticLanguage = "auto";
-                    staticLanguageComponent?.setValue("auto");
+                    refs.staticLanguageComponent?.setValue("auto");
                     this.plugin.settings.germanVeriety = value as
                       | "de-DE"
                       | "de-CH"
@@ -652,7 +657,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           name: "Interpret Portuguese as",
           render: setting => {
             setting.addDropdown(component => {
-              portugueseVarietyDropdown = component;
+              refs.portugueseVarietyDropdown = component;
               component
                 .addOptions({
                   default: "---",
@@ -667,7 +672,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                     this.plugin.settings.portugueseVeriety = undefined;
                   } else {
                     this.plugin.settings.staticLanguage = "auto";
-                    staticLanguageComponent?.setValue("auto");
+                    refs.staticLanguageComponent?.setValue("auto");
                     this.plugin.settings.portugueseVeriety = value as
                       | "pt-BR"
                       | "pt-PT"
@@ -683,7 +688,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           name: "Interpret Catalan as",
           render: setting => {
             setting.addDropdown(component => {
-              catalanVarietyDropdown = component;
+              refs.catalanVarietyDropdown = component;
               component
                 .addOptions({
                   default: "---",
@@ -696,7 +701,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                     this.plugin.settings.catalanVeriety = undefined;
                   } else {
                     this.plugin.settings.staticLanguage = "auto";
-                    staticLanguageComponent?.setValue("auto");
+                    refs.staticLanguageComponent?.setValue("auto");
                     this.plugin.settings.catalanVeriety = value as
                       | "ca-ES"
                       | "ca-ES-valencia";

@@ -2,10 +2,6 @@ import { App } from "obsidian";
 import { EditorView, Decoration, DecorationSet } from "@codemirror/view";
 import { StateField, StateEffect } from "@codemirror/state";
 import { syntaxTree, tokenClassNodeProp } from "@codemirror/language";
-
-// The syntax tree type from @lezer/common, derived so the package (a
-// transitive dependency of @codemirror/language) is not imported directly
-type Tree = ReturnType<typeof syntaxTree>;
 import {
   getIssueTypeClassName,
   getSpellcheckDictionary,
@@ -128,7 +124,9 @@ export const underlineField = StateField.define<DecorationSet>({
 
     // Memoize any positions we check so we can avoid some work
     const seenPositions: Record<number, boolean> = {};
-    let tree: Tree | null = null;
+    // syntaxTree() only returns the parse work that already happened, so
+    // reading it once up front costs nothing extra
+    const tree = syntaxTree(tr.state);
 
     underlines = underlines.map(tr.changes);
 
@@ -137,8 +135,6 @@ export const underlineField = StateField.define<DecorationSet>({
       if (seenPositions[pos] !== undefined) {
         return seenPositions[pos];
       }
-
-      if (!tree) tree = syntaxTree(tr.state);
 
       const nodeProps = tree.resolveInner(pos, 1).type.prop(tokenClassNodeProp);
 
@@ -166,8 +162,6 @@ export const underlineField = StateField.define<DecorationSet>({
       }
 
       // Don't display whitespace rules in tables
-      if (!tree) tree = syntaxTree(tr.state);
-
       const lineNodeProp = tree
         .resolve(tr.newDoc.lineAt(from).from, 1)
         .type.prop(tokenClassNodeProp);
