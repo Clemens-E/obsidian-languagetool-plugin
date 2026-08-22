@@ -6,6 +6,17 @@ import { getRuleCategories } from "./helpers";
 
 export const logs: string[] = [];
 
+const MaxLogEntries = 10;
+
+// Timestamped ring buffer behind the "Copy failed Request Logs" button in the
+// settings tab. Callers must redact credentials before pushing.
+function pushLogEntry(entry: string): void {
+  logs.push(`${new Date().toLocaleString()}: ${entry}`);
+  if (logs.length > MaxLogEntries) {
+    logs.shift();
+  }
+}
+
 /**
  * Resolved LanguageTool credentials. These may come from either the plugin
  * settings (data.json) or Obsidian's SecretStorage, depending on the user's
@@ -138,12 +149,7 @@ export async function getDetectionResult(
     }${settings.catalanVeriety}`;
   }
 
-  if (
-    credentials.apikey &&
-    credentials.username &&
-    credentials.apikey.length > 1 &&
-    credentials.username.length > 1
-  ) {
+  if (credentials.apikey && credentials.username) {
     params.username = credentials.username;
     params.apiKey = credentials.apikey;
   }
@@ -178,6 +184,9 @@ export async function getDetectionResult(
     });
   } catch (e) {
     const status = "request-failed";
+    pushLogEntry(
+      `request to ${settings.serverUrl}/v2/check failed: ${String(e)}`
+    );
     if (lastStatus !== status || !settings.shouldAutoCheck) {
       new Notice(
         `Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`,
@@ -192,8 +201,11 @@ export async function getDetectionResult(
     const status = "request-not-ok";
     await pushLogs(res, settings, credentials);
     if (lastStatus !== status || !settings.shouldAutoCheck) {
+      const reason = res.statusText
+        ? `${res.status} ${res.statusText}`
+        : `${res.status}`;
       new Notice(
-        `Request to LanguageTool failed\n${res.statusText}Check Plugin Settings for Logs`,
+        `Request to LanguageTool failed: ${reason}\nCheck the plugin settings for logs`,
         3000
       );
       lastStatus = status;
@@ -215,10 +227,10 @@ export async function getDetectionResult(
     return Promise.reject(e);
   }
 
-  const status = "ok";
-  if (lastStatus !== status || !settings.shouldAutoCheck) {
+  // Only notify when recovering from a failed state
+  if (lastStatus !== "ok") {
     new Notice(`LanguageTool detection restored`, 5000);
-    lastStatus = status;
+    lastStatus = "ok";
   }
 
   return body;
@@ -229,8 +241,7 @@ export async function pushLogs(
   settings: LanguageToolPluginSettings,
   credentials: LanguageToolApiCredentials
 ): Promise<void> {
-  let debugString = `${new Date().toLocaleString()}:
-  url used for request: ${res.url}
+  let debugString = `url used for request: ${res.url}
   Status: ${res.status}
   Body: ${(await res.text()).slice(0, 200)}
   Settings: ${JSON.stringify({
@@ -245,9 +256,5 @@ export async function pushLogs(
       .replaceAll(credentials.apikey ?? "apiKey", "<<apikey>>");
   }
 
-  logs.push(debugString);
-
-  if (logs.length > 10) {
-    logs.shift();
-  }
+  pushLogEntry(debugString);
 }

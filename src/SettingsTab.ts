@@ -92,9 +92,15 @@ function getMinAllowedAutoCheckDelay(value: string) {
     : AutoCheckDelayStep;
 }
 
+interface LanguageToolLanguage {
+  name: string;
+  code: string;
+  longCode: string;
+}
+
 export class LanguageToolSettingsTab extends PluginSettingTab {
   private readonly plugin: LanguageToolPlugin;
-  private languages?: { name: string; code: string; longCode: string }[];
+  private languagesPromise?: Promise<LanguageToolLanguage[]>;
   public constructor(app: App, plugin: LanguageToolPlugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -107,7 +113,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
     const minAllowedAutoCheckDelay = getMinAllowedAutoCheckDelay(value);
 
     if (this.plugin.settings.autoCheckDelay < minAllowedAutoCheckDelay) {
-      this.plugin.settings.autoCheckDelay = MinStandardAutoCheckDelay;
+      this.plugin.settings.autoCheckDelay = minAllowedAutoCheckDelay;
     }
 
     delaySlider?.setLimits(
@@ -115,15 +121,25 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
       MaxAutoCheckDelay,
       AutoCheckDelayStep
     );
+    delaySlider?.setValue(this.plugin.settings.autoCheckDelay);
   }
 
-  public async requestLanguages() {
-    if (this.languages) return this.languages;
-    const languages = await fetch(
-      `${this.plugin.settings.serverUrl}/v2/languages`
-    ).then(res => res.json());
-    this.languages = languages;
-    return this.languages;
+  public requestLanguages(): Promise<LanguageToolLanguage[]> {
+    if (!this.languagesPromise) {
+      this.languagesPromise = fetch(
+        `${this.plugin.settings.serverUrl}/v2/languages`
+      ).then(res => {
+        if (!res.ok) {
+          throw new Error(`unexpected status ${res.status}`);
+        }
+        return res.json() as Promise<LanguageToolLanguage[]>;
+      });
+      // A failed fetch is not cached, so reopening the settings retries
+      this.languagesPromise.catch(() => {
+        this.languagesPromise = undefined;
+      });
+    }
+    return this.languagesPromise;
   }
 
   /**
@@ -178,12 +194,26 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
     let urlDropdown: DropdownComponent | null = null;
     let autoCheckDelaySlider: SliderComponent | null = null;
     let disableUrlPopup = false;
+    // Shared by the language dropdowns below; a single notice on failure
+    // instead of silently empty dropdowns
+    const languagesPromise = this.requestLanguages();
+    languagesPromise.catch(e => {
+      console.error(e);
+      new Notice(
+        "Failed to fetch the list of languages from the LanguageTool server. Check the endpoint URL, then reopen the settings to retry. Auto-detect keeps working in the meantime.",
+        8000
+      );
+    });
     containerEl.empty();
     containerEl.createEl("h2", { text: "Settings for LanguageTool" });
     const copyButton = containerEl.createEl("button", {
       text: "Copy failed Request Logs"
     });
     copyButton.onclick = async () => {
+      if (logs.length === 0) {
+        new Notice("No failed requests have been logged yet");
+        return;
+      }
       await window.navigator.clipboard.writeText(logs.join("\n"));
       new Notice("Logs copied to clipboard");
     };
@@ -210,6 +240,7 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                 | "premium"
                 | "custom";
               this.plugin.settings.serverUrl = getServerUrl(value);
+              this.languagesPromise = undefined;
               input?.setValue(this.plugin.settings.serverUrl);
               input?.setDisabled(value !== "custom");
 
@@ -223,11 +254,12 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           text
             .setPlaceholder("https://your-custom-url.com")
             .setValue(this.plugin.settings.serverUrl)
-            .setDisabled(this.plugin.settings.urlMode === "custom")
+            .setDisabled(this.plugin.settings.urlMode !== "custom")
             .onChange(async value => {
               this.plugin.settings.serverUrl = value
                 .replace(/\/v2\/check\/$/, "")
                 .replace(/\/$/, "");
+              this.languagesPromise = undefined;
               await this.plugin.saveSettings();
             });
         });
@@ -284,22 +316,25 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
             })
         );
     } else {
-      apiKeySetting.setDesc("Enter an API Key").addText(text =>
+      apiKeySetting.setDesc("Enter an API Key").addText(text => {
         text
           .setValue(this.plugin.settings.apikey ?? "")
           .onChange(async value => {
             this.plugin.settings.apikey = value.replace(/\s+/g, "");
             await this.plugin.saveSettings();
-            this.maybeWarnNonPremium(
-              this.plugin.settings.apikey.length > 0,
-              urlDropdown,
-              () => {
-                disableUrlPopup = true;
-              },
-              disableUrlPopup
-            );
-          })
-      );
+          });
+        // Warn when the user is done typing, not on every keystroke
+        text.inputEl.addEventListener("blur", () => {
+          this.maybeWarnNonPremium(
+            Boolean(this.plugin.settings.apikey),
+            urlDropdown,
+            () => {
+              disableUrlPopup = true;
+            },
+            disableUrlPopup
+          );
+        });
+      });
     }
     apiKeySetting.then(setting => {
       setting.descEl.createEl("br");
@@ -424,28 +459,31 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
       )
       .addDropdown(component => {
         staticLanguageComponent = component;
-        this.requestLanguages()
+        component.addOption("auto", "Auto Detect");
+        component.setValue(this.plugin.settings.staticLanguage ?? "auto");
+        component.onChange(async value => {
+          this.plugin.settings.staticLanguage = value;
+          if (value !== "auto") {
+            this.plugin.settings.englishVeriety = undefined;
+            englishVarietyDropdown?.setValue("default");
+            this.plugin.settings.germanVeriety = undefined;
+            germanVarietyDropdown?.setValue("default");
+            this.plugin.settings.portugueseVeriety = undefined;
+            portugueseVarietyDropdown?.setValue("default");
+            this.plugin.settings.catalanVeriety = undefined;
+            catalanVarietyDropdown?.setValue("default");
+          }
+          await this.plugin.saveSettings();
+        });
+        languagesPromise
           .then(languages => {
-            component.addOption("auto", "Auto Detect");
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
-            languages!.forEach(v => component.addOption(v.longCode, v.name));
+            languages.forEach(v => component.addOption(v.longCode, v.name));
+            // Set again now that the stored language exists as an option
             component.setValue(this.plugin.settings.staticLanguage ?? "auto");
-            component.onChange(async value => {
-              this.plugin.settings.staticLanguage = value;
-              if (value !== "auto") {
-                this.plugin.settings.englishVeriety = undefined;
-                englishVarietyDropdown?.setValue("default");
-                this.plugin.settings.germanVeriety = undefined;
-                germanVarietyDropdown?.setValue("default");
-                this.plugin.settings.portugueseVeriety = undefined;
-                portugueseVarietyDropdown?.setValue("default");
-                this.plugin.settings.catalanVeriety = undefined;
-                catalanVarietyDropdown?.setValue("default");
-              }
-              await this.plugin.saveSettings();
-            });
           })
-          .catch(console.error);
+          .catch(() => {
+            // The shared handler above already notified the user
+          });
       });
 
     new Setting(containerEl)
@@ -454,18 +492,22 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
         "Set the language you are most comfortable with. This will be used to interpret the language you are writing in"
       )
       .addDropdown(component => {
-        this.requestLanguages()
+        component.addOption("default", "---");
+        component.setValue(this.plugin.settings.motherTongue ?? "default");
+        component.onChange(async value => {
+          this.plugin.settings.motherTongue =
+            value === "default" ? undefined : value;
+          await this.plugin.saveSettings();
+        });
+        languagesPromise
           .then(languages => {
-            component.addOption("empty", "");
-            languages!.forEach(v => component.addOption(v.longCode, v.name));
-            component.onChange(async value => {
-              this.plugin.settings.motherTongue = value;
-              component.setValue(this.plugin.settings.motherTongue ?? "");
-
-              await this.plugin.saveSettings();
-            });
+            languages.forEach(v => component.addOption(v.longCode, v.name));
+            // Set again now that the stored language exists as an option
+            component.setValue(this.plugin.settings.motherTongue ?? "default");
           })
-          .catch(console.error);
+          .catch(() => {
+            // The shared handler above already notified the user
+          });
       });
 
     containerEl.createEl("h3", { text: "Language Varieties" });

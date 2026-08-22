@@ -7,8 +7,8 @@ import {
   LanguageToolPluginSettings,
   LanguageToolSettingsTab
 } from "./SettingsTab";
-import { LanguageToolApi } from "./LanguageToolTypings";
-import { hashString } from "./helpers";
+import { LanguageToolApi, MatchesEntity } from "./LanguageToolTypings";
+import { hashString, getVisibleReplacements } from "./helpers";
 import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
 import {
@@ -26,7 +26,10 @@ export default class LanguageToolPlugin extends Plugin {
   public settings: LanguageToolPluginSettings;
   private statusBarText: HTMLElement;
 
-  private hashLru: QuickLRU<number, LanguageToolApi>;
+  private readonly hashLru = new QuickLRU<number, LanguageToolApi>({
+    maxSize: 10
+  });
+
   private isloading = false;
 
   public async onload() {
@@ -75,6 +78,17 @@ export default class LanguageToolPlugin extends Plugin {
       }
     }
 
+    // A stored mother tongue of "empty" means "not set"; clear it so it is
+    // never sent to the API as a language code
+    if (this.settings.motherTongue === "empty") {
+      this.settings.motherTongue = undefined;
+      try {
+        await this.saveSettings();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     await this.resolveApiKeyStorageMode();
     await this.migrateStrayPlaintextKey();
 
@@ -91,9 +105,6 @@ export default class LanguageToolPlugin extends Plugin {
       );
     });
 
-    this.hashLru = new QuickLRU<number, LanguageToolApi>({
-      maxSize: 10
-    });
     this.registerEditorExtension(buildUnderlineExtension(this));
 
     // Commands
@@ -226,10 +237,16 @@ export default class LanguageToolPlugin extends Plugin {
             relevantMatches.push({ from, to, value });
           });
 
+        // The same filtered list the tooltip renders as buttons, so slot n
+        // matches button n.
+        const match = relevantMatches[0]?.value?.spec?.match as
+          | MatchesEntity
+          | undefined;
+        const replacements = match ? getVisibleReplacements(match) : [];
+
         // Check that there is exactly one match that has a replacement in the slot that is called.
         const preconditionsSuccessfull =
-          relevantMatches.length === 1 &&
-          relevantMatches[0]?.value?.spec?.match?.replacements?.length >= n;
+          relevantMatches.length === 1 && replacements.length >= n;
 
         if (checking) return preconditionsSuccessfull;
 
@@ -241,11 +258,11 @@ export default class LanguageToolPlugin extends Plugin {
         }
 
         // At this point, the check must have been successful.
-        const { from, to, value } = relevantMatches[0];
+        const { from, to } = relevantMatches[0];
         const change = {
           from,
           to,
-          insert: value.spec.match.replacements[n - 1].value
+          insert: replacements[n - 1]
         };
 
         // Insert the text of the match
@@ -290,20 +307,19 @@ export default class LanguageToolPlugin extends Plugin {
         item.setTitle("Check current document");
         item.setIcon("checkbox-glyph");
         item.onClick(async () => {
-          const activeLeaf = this.app.workspace.activeLeaf;
-          if (
-            activeLeaf?.view instanceof MarkdownView &&
-            activeLeaf.view.getMode() === "source"
-          ) {
-            try {
-              await this.runDetection(
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                (activeLeaf.view.editor as any).cm,
-                activeLeaf.view
-              );
-            } catch (e) {
-              console.error(e);
-            }
+          const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+          if (!view || view.getMode() !== "source") {
+            new Notice("Open a note in editing mode to check it", 3000);
+            return;
+          }
+          try {
+            await this.runDetection(
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+              (view.editor as any).cm,
+              view
+            );
+          } catch (e) {
+            console.error(e);
           }
         });
       })
@@ -343,10 +359,22 @@ export default class LanguageToolPlugin extends Plugin {
     from?: number,
     to?: number
   ) {
-    // ignore lt-ignore tags
-    const frontmatter = this.app.metadataCache.getFileCache(view.file!)
-      ?.frontmatter;
-    if (frontmatter?.tags?.includes("lt-ignore")) {
+    // Auto-check always passes an explicit range, so a call without one was
+    // triggered by the user and deserves feedback
+    const manuallyTriggered = from === undefined && to === undefined;
+
+    // ignore lt-ignore tags; frontmatter tags can be a list or a
+    // comma-separated string, and either form must match whole tags only
+    const frontmatter = view.file
+      ? this.app.metadataCache.getFileCache(view.file)?.frontmatter
+      : undefined;
+    const tags: unknown = frontmatter?.tags;
+    const tagList: string[] = Array.isArray(tags)
+      ? tags.map(String)
+      : typeof tags === "string"
+      ? tags.split(",").map(t => t.trim())
+      : [];
+    if (tagList.includes("lt-ignore")) {
       return;
     }
 
@@ -436,6 +464,10 @@ export default class LanguageToolPlugin extends Plugin {
       });
     }
 
+    if (manuallyTriggered && (res.matches?.length ?? 0) === 0) {
+      new Notice("LanguageTool found no issues", 3000);
+    }
+
     this.setStatusBarReady();
   }
 
@@ -444,6 +476,9 @@ export default class LanguageToolPlugin extends Plugin {
   }
 
   public async saveSettings() {
+    // Cached results depend on the settings (language, rules, picky mode), so
+    // any settings change invalidates them
+    this.hashLru.clear();
     await this.saveData(this.settings);
   }
 

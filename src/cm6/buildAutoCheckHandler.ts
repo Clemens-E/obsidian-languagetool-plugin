@@ -1,41 +1,63 @@
-import { EditorView } from "@codemirror/view";
+import { ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { editorViewField, MarkdownView } from "obsidian";
 import LanguageToolPlugin from "src";
 
 export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
-  let debounceTimer = -1;
-  let minRange = Infinity;
-  let maxRange = -Infinity;
+  // A ViewPlugin gets one instance per editor, so the debounce timer and the
+  // accumulated range are isolated per pane and cleaned up with the editor.
+  return ViewPlugin.define(view => {
+    let debounceTimer = -1;
+    let minRange = Infinity;
+    let maxRange = -Infinity;
 
-  return EditorView.inputHandler.of((view, from, to, text) => {
-    if (!plugin.settings.shouldAutoCheck || !text.trim()) {
-      return false;
-    }
+    return {
+      update(update: ViewUpdate) {
+        if (!plugin.settings.shouldAutoCheck || !update.docChanged) {
+          return;
+        }
 
-    // @ts-ignore
-    const markdownView = view.state.field(editorViewField);
+        // Keep positions accumulated from earlier edits valid in the new doc
+        if (minRange !== Infinity) {
+          minRange = update.changes.mapPos(minRange, -1);
+          maxRange = update.changes.mapPos(maxRange, 1);
+        }
 
-    minRange = Math.min(minRange, Math.min(from, to));
-    maxRange = Math.max(maxRange, Math.max(from, to));
-
-    clearTimeout(debounceTimer);
-
-    debounceTimer = window.setTimeout(() => {
-      const startLine = view.lineBlockAt(minRange);
-      const endLine = view.lineBlockAt(maxRange);
-
-      plugin
-        .runDetection(
-          view,
-          markdownView as MarkdownView,
-          startLine.from,
-          endLine.to
-        )
-        .catch(e => {
-          console.error(e);
+        update.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+          minRange = Math.min(minRange, fromB);
+          maxRange = Math.max(maxRange, toB);
         });
-    }, plugin.settings.autoCheckDelay);
 
-    return false;
+        clearTimeout(debounceTimer);
+
+        debounceTimer = window.setTimeout(() => {
+          const docLength = view.state.doc.length;
+          const from = Math.min(minRange, docLength);
+          const to = Math.min(maxRange, docLength);
+
+          minRange = Infinity;
+          maxRange = -Infinity;
+
+          const startLine = view.lineBlockAt(from);
+          const endLine = view.lineBlockAt(to);
+
+          // @ts-ignore
+          const markdownView = view.state.field(editorViewField);
+
+          plugin
+            .runDetection(
+              view,
+              markdownView as MarkdownView,
+              startLine.from,
+              endLine.to
+            )
+            .catch(e => {
+              console.error(e);
+            });
+        }, plugin.settings.autoCheckDelay);
+      },
+      destroy() {
+        clearTimeout(debounceTimer);
+      }
+    };
   });
 }

@@ -1,6 +1,6 @@
 import { EditorView, Tooltip, showTooltip } from "@codemirror/view";
 import { StateField, EditorState } from "@codemirror/state";
-import { getIssueTypeClassName } from "../helpers";
+import { getIssueTypeClassName, getVisibleReplacements } from "../helpers";
 import { setIcon } from "obsidian";
 import LanguageToolPlugin from "src";
 import {
@@ -18,10 +18,7 @@ function contructTooltip(
   const match = underline.match;
   const message = match.message;
   const title = match.shortMessage;
-  const buttons = (match.replacements ?? [])
-    .slice(0, 3)
-    .map(v => v.value)
-    .filter(v => v.trim());
+  const buttons = getVisibleReplacements(match);
   const category = match.rule.category.id;
   const ruleId = match.rule.id;
 

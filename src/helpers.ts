@@ -1,4 +1,5 @@
 import { LanguageToolPluginSettings } from "./SettingsTab";
+import { MatchesEntity } from "./LanguageToolTypings";
 
 export const ignoreListRegEx = /frontmatter|code|math|templater|blockid|hashtag|internal/;
 
@@ -13,6 +14,16 @@ export function hashString(value: string) {
     hash &= hash; // Convert to 32bit integer
   }
   return hash;
+}
+
+// The replacements offered to the user for a match. The tooltip buttons and
+// the "Accept suggestion #N" commands share this list, so hotkey slot N always
+// applies the same text as tooltip button N.
+export function getVisibleReplacements(match: MatchesEntity): string[] {
+  return (match.replacements ?? [])
+    .slice(0, 3)
+    .map(v => v.value)
+    .filter(v => v.trim());
 }
 
 // Assign a CSS class based on a rule's category ID
