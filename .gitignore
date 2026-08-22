@@ -1,3 +1,6 @@
 node_modules/
 main.js
 .hotreload
+esbuild.config.local.mjs
+issues.json
+.obsidian-cache/

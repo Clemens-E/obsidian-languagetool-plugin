@@ -13,5 +13,5 @@
     "allowSyntheticDefaultImports": true,
     "lib": ["dom", "es5", "scripthost", "es2018", "es2021"]
   },
-  "include": ["**/*.ts"]
+  "include": ["src/**/*.ts"]
 }

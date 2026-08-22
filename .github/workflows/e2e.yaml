@@ -1,0 +1,54 @@
+name: E2E Tests
+
+# Manual trigger only
+on:
+  workflow_dispatch:
+
+env:
+  # appVersion/installerVersion pairs: the oldest supported Obsidian
+  # (minAppVersion) and the latest release
+  OBSIDIAN_VERSIONS: earliest/earliest latest/latest
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build plugin
+        run: yarn build
+
+      - name: Set up virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb herbstluftwm dzen2
+          Xvfb :99 -screen 0 1280x1024x24 +extension GLX &
+          sleep 1
+          herbstluftwm &
+          sleep 1
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+
+      - name: Resolve Obsidian versions for the cache key
+        run: |
+          npx tsx wdio.conf.mts > obsidian-versions-lock.txt
+          cat obsidian-versions-lock.txt
+          rm -rf .obsidian-cache
+
+      - name: Cache Obsidian downloads
+        uses: actions/cache@v4
+        with:
+          path: .obsidian-cache
+          key: obsidian-cache-${{ hashFiles('obsidian-versions-lock.txt') }}
+
+      - name: Run e2e tests
+        run: yarn test:e2e
+        env:
+          WDIO_MAX_INSTANCES: "2"

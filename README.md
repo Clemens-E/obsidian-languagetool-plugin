@@ -11,7 +11,7 @@ If you decide to self host the service, you need to change the link in the confi
 
 ## Installation
 
-1. In Obsidian, under Settings / Community plugins, disable "Safe mode" (read the safety warning).
+1. In Obsidian, under Settings / Community plugins, turn off "Restricted mode" (read the safety warning).
 2. Click the Browse button for Community plugins.
 3. In the top-left search field, search for "LanguageTool Integration". Click the Install button.
 4. After the installation is successful, click Enable to enable the plugin. 

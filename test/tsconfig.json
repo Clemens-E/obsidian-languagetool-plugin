@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "types": ["@types/mocha", "@wdio/globals/types"]
+  },
+  "include": ["./**/*.ts", "../wdio.conf.mts"]
+}
