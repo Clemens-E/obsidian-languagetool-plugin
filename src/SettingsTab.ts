@@ -5,6 +5,7 @@ import {
   Modal,
   Notice,
   PluginSettingTab,
+  SecretComponent,
   Setting,
   SliderComponent,
   TextComponent
@@ -35,6 +36,13 @@ export interface LanguageToolPluginSettings {
   glassBg: boolean;
   apikey?: string;
   username?: string;
+  // Where the API key lives: "local" = data.json (syncs across devices),
+  // "secret" = Obsidian's encrypted SecretStorage (device-local). Undefined for
+  // legacy installs; resolved on load by the plugin.
+  apiKeyStorage?: "local" | "secret";
+  // In "secret" mode, the name of the SecretStorage secret holding the API key
+  // (the value itself is never stored here, only the reference).
+  apikeySecretName?: string;
   staticLanguage?: string;
   motherTongue?: string;
 
@@ -118,10 +126,58 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
     return this.languages;
   }
 
+  /**
+   * Warn the user when an API key is set but the endpoint is not the premium
+   * one. Shared by both the plaintext text input and the SecretComponent.
+   */
+  private maybeWarnNonPremium(
+    hasKey: boolean,
+    urlDropdown: DropdownComponent | null,
+    onAcknowledge: () => void,
+    disableUrlPopup: boolean
+  ): void {
+    if (
+      !hasKey ||
+      this.plugin.settings.urlMode === "premium" ||
+      disableUrlPopup
+    ) {
+      return;
+    }
+    const modal = new Modal(this.app);
+    modal.titleEl.createEl("span", { text: "Warning" });
+    modal.contentEl.createEl("p", {
+      text:
+        "You have entered an API Key but you are not using the Premium Endpoint"
+    });
+    modal.contentEl.style.display = "grid";
+    const container = modal.contentEl.createEl("div", {
+      attr: { style: "justify-self:center" }
+    });
+    container.createEl("button", {
+      text: "I know what I'm doing",
+      attr: { style: "justify-self:flex-start; color:red;" }
+    }).onclick = () => {
+      onAcknowledge();
+      modal.close();
+    };
+    container.createEl("button", {
+      text: "Change to Premium",
+      attr: { style: "justify-self:flex-end" }
+    }).onclick = async () => {
+      this.plugin.settings.urlMode = "premium";
+      urlDropdown?.setValue("premium");
+      this.plugin.settings.serverUrl = getServerUrl("premium");
+      await this.plugin.saveSettings();
+      return modal.close();
+    };
+    modal.open();
+  }
+
   public display(): void {
     const { containerEl } = this;
     let urlDropdown: DropdownComponent | null = null;
     let autoCheckDelaySlider: SliderComponent | null = null;
+    let disableUrlPopup = false;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Settings for LanguageTool" });
     const copyButton = containerEl.createEl("button", {
@@ -202,69 +258,113 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
           }
         );
       });
-    let disableUrlPopup = false;
-    new Setting(containerEl)
-      .setName("API Key")
-      .setDesc("Enter an API Key")
-      .addText(text =>
+    const apiKeySetting = new Setting(containerEl).setName("API Key");
+    const useSecretStorage =
+      this.plugin.settings.apiKeyStorage === "secret" &&
+      this.plugin.isSecretStorageAvailable();
+    if (useSecretStorage) {
+      apiKeySetting
+        .setDesc(
+          "Select or create a secret in Obsidian's SecretStorage. Stored encrypted on this device only."
+        )
+        .addComponent(el =>
+          new SecretComponent(this.app, el)
+            .setValue(this.plugin.settings.apikeySecretName ?? "")
+            .onChange(async value => {
+              this.plugin.settings.apikeySecretName = value;
+              await this.plugin.saveSettings();
+              this.maybeWarnNonPremium(
+                value.length > 0,
+                urlDropdown,
+                () => {
+                  disableUrlPopup = true;
+                },
+                disableUrlPopup
+              );
+            })
+        );
+    } else {
+      apiKeySetting.setDesc("Enter an API Key").addText(text =>
         text
           .setValue(this.plugin.settings.apikey ?? "")
           .onChange(async value => {
             this.plugin.settings.apikey = value.replace(/\s+/g, "");
-            if (
-              this.plugin.settings.apikey.length > 0 &&
-              this.plugin.settings.urlMode !== "premium" &&
-              !disableUrlPopup
-            ) {
-              const modal = new Modal(this.app);
-              modal.titleEl.createEl("span", { text: "Warning" });
-              modal.contentEl.createEl("p", {
-                text:
-                  "You have entered an API Key but you are not using the Premium Endpoint"
-              });
-              modal.contentEl.style.display = "grid";
-              const container = modal.contentEl.createEl("div", {
-                attr: { style: "justify-self:center" }
-              });
-              container.createEl("button", {
-                text: "I know what I'm doing",
-                attr: {
-                  style: "justify-self:flex-start; color:red;"
-                }
-              }).onclick = () => {
-                disableUrlPopup = true;
-                modal.close();
-              };
-              container.createEl("button", {
-                text: "Change to Premium",
-                attr: {
-                  style: "justify-self:flex-end"
-                }
-              }).onclick = async () => {
-                this.plugin.settings.urlMode = "premium";
-                urlDropdown?.setValue("premium");
-                this.plugin.settings.serverUrl = getServerUrl(value);
-                await this.plugin.saveSettings();
-                return modal.close();
-              };
-              modal.open();
-            }
             await this.plugin.saveSettings();
+            this.maybeWarnNonPremium(
+              this.plugin.settings.apikey.length > 0,
+              urlDropdown,
+              () => {
+                disableUrlPopup = true;
+              },
+              disableUrlPopup
+            );
           })
+      );
+    }
+    apiKeySetting.then(setting => {
+      setting.descEl.createEl("br");
+      setting.descEl.createEl(
+        "a",
+        {
+          text: "Click here for information about Premium Access",
+          href:
+            "https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts"
+        },
+        a => {
+          a.setAttr("target", "_blank");
+        }
+      );
+    });
+    new Setting(containerEl)
+      .setName("Store API key securely (this device only)")
+      .setDesc(
+        "Store your API key in Obsidian's encrypted SecretStorage instead of in plaintext in data.json. Secrets are not synced across devices, so you'll need to set your key once on each device. Your username stays in your synced settings."
       )
+      .addToggle(component => {
+        const available = this.plugin.isSecretStorageAvailable();
+        component
+          .setValue(this.plugin.settings.apiKeyStorage === "secret")
+          .setDisabled(!available)
+          .onChange(async value => {
+            if (value) {
+              const hadPlaintextKey = Boolean(this.plugin.settings.apikey);
+              await this.plugin.enableSecretStorage();
+              new Notice(
+                hadPlaintextKey
+                  ? "API key moved to secure storage on this device. It will not sync to your other devices."
+                  : "Secure storage enabled. Select or create a secret for your API key in the setting above.",
+                5000
+              );
+            } else {
+              await this.plugin.disableSecretStorage();
+            }
+            // Re-render so the API key setting matches the storage mode that
+            // actually took effect (a disable may be refused when the secret
+            // is not set on this device).
+            this.display();
+          });
+      })
       .then(setting => {
         setting.descEl.createEl("br");
         setting.descEl.createEl(
           "a",
           {
-            text: "Click here for information about Premium Access",
+            text: "Read about the trade-offs of both storage options",
             href:
-              "https://github.com/Clemens-E/obsidian-languagetool-plugin#premium-accounts"
+              "https://github.com/Clemens-E/obsidian-languagetool-plugin#api-key-storage-synced-plaintext-vs-secure-storage"
           },
           a => {
             a.setAttr("target", "_blank");
           }
         );
+        if (!this.plugin.isSecretStorageAvailable()) {
+          setting.descEl.createEl("br");
+          setting.descEl.createEl("span", {
+            text:
+              "Not available on this device (requires Obsidian 1.11.4 or newer).",
+            attr: { style: "color: var(--text-error)" }
+          });
+        }
       });
     new Setting(containerEl)
       .setName("Autocheck Text")

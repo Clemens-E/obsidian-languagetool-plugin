@@ -9,7 +9,7 @@ import {
 } from "./SettingsTab";
 import { LanguageToolApi } from "./LanguageToolTypings";
 import { hashString } from "./helpers";
-import { getDetectionResult } from "./api";
+import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
 import {
   addUnderline,
@@ -17,6 +17,10 @@ import {
   clearUnderlinesInRange,
   underlineField
 } from "./cm6/underlineStateField";
+
+// Default SecretStorage secret name used when migrating an existing plaintext
+// key. Secret names must be lowercase alphanumeric with optional dashes.
+const DEFAULT_APIKEY_SECRET_NAME = "languagetool-api-key";
 
 export default class LanguageToolPlugin extends Plugin {
   public settings: LanguageToolPluginSettings;
@@ -70,6 +74,9 @@ export default class LanguageToolPlugin extends Plugin {
         console.error(e);
       }
     }
+
+    await this.resolveApiKeyStorageMode();
+    await this.migrateStrayPlaintextKey();
 
     this.addSettingTab(new LanguageToolSettingsTab(this.app, this));
 
@@ -375,7 +382,11 @@ export default class LanguageToolPlugin extends Plugin {
       res = this.hashLru.get(hash)!;
     } else {
       try {
-        res = await getDetectionResult(text, () => this.settings);
+        res = await getDetectionResult(
+          text,
+          () => this.settings,
+          this.getCredentials()
+        );
         this.hashLru.set(hash, res);
       } catch (e) {
         this.setStatusBarReady();
@@ -434,5 +445,131 @@ export default class LanguageToolPlugin extends Plugin {
 
   public async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Whether Obsidian's native SecretStorage is available on this device.
+   * Added in Obsidian 1.11.4, so it is undefined on older versions (and we
+   * fall back to storing credentials in data.json).
+   */
+  public isSecretStorageAvailable(): boolean {
+    return Boolean(this.app.secretStorage);
+  }
+
+  /**
+   * Resolve credentials for an API request. The username always lives in
+   * data.json (it is not a secret). In "secret" mode the API key value is read
+   * from SecretStorage by the name we have stored; otherwise it comes from the
+   * plaintext settings.
+   */
+  public getCredentials(): LanguageToolApiCredentials {
+    const username = this.settings.username;
+    if (
+      this.settings.apiKeyStorage === "secret" &&
+      this.isSecretStorageAvailable() &&
+      this.settings.apikeySecretName
+    ) {
+      return {
+        username,
+        apikey:
+          this.app.secretStorage.getSecret(this.settings.apikeySecretName) ??
+          undefined
+      };
+    }
+    return { username, apikey: this.settings.apikey };
+  }
+
+  /**
+   * Migrate an existing user to SecretStorage. We seed the secret once from the
+   * existing plaintext key (the only setSecret call we make; afterwards the
+   * SecretComponent in the settings tab owns the secret), then drop the
+   * plaintext copy from data.json.
+   */
+  public async enableSecretStorage(): Promise<void> {
+    if (this.settings.apikey) {
+      const name = this.settings.apikeySecretName ?? DEFAULT_APIKEY_SECRET_NAME;
+      this.app.secretStorage.setSecret(name, this.settings.apikey);
+      this.settings.apikeySecretName = name;
+    }
+    this.settings.apikey = undefined;
+    this.settings.apiKeyStorage = "secret";
+    await this.saveSettings();
+  }
+
+  /**
+   * Switch back to data.json: copy the secret's current value back into the
+   * settings so it syncs across devices again. The secret itself is left in
+   * SecretStorage (there is no delete API, and the named secret may be shared
+   * with other plugins), so we simply stop referencing it.
+   *
+   * Refuses the switch (returning false) when a secret is referenced but not
+   * set on this device: the secret name syncs via data.json, so clearing it
+   * here would break the key on the device that actually holds the secret,
+   * without recovering any key value on this one.
+   */
+  public async disableSecretStorage(): Promise<boolean> {
+    if (this.settings.apikeySecretName && this.isSecretStorageAvailable()) {
+      const value = this.app.secretStorage.getSecret(
+        this.settings.apikeySecretName
+      );
+      if (value === null) {
+        new Notice(
+          `The secret "${this.settings.apikeySecretName}" is not set on this device, so there is no API key to copy back into the synced settings. Set the secret here first, or disable secure storage on the device that holds the key.`,
+          10000
+        );
+        return false;
+      }
+      this.settings.apikey = value;
+    }
+    this.settings.apikeySecretName = undefined;
+    this.settings.apiKeyStorage = "local";
+    await this.saveSettings();
+    return true;
+  }
+
+  /**
+   * A plaintext API key can coexist with "secret" mode when it was entered on
+   * a device without SecretStorage support and the settings then synced here.
+   * The plaintext copy is the user's most recent input, so it wins: move it
+   * into the secret and drop it from data.json, so no key lingers unencrypted
+   * (and invisible, since the settings UI only shows the secret picker in
+   * this mode).
+   */
+  private async migrateStrayPlaintextKey(): Promise<void> {
+    if (
+      this.settings.apiKeyStorage === "secret" &&
+      this.isSecretStorageAvailable() &&
+      this.settings.apikey
+    ) {
+      await this.enableSecretStorage();
+    }
+  }
+
+  /**
+   * Decide the default credential storage backend on first run / for legacy
+   * installs that predate this setting. Existing users with a key already in
+   * data.json keep using it (so cross-device sync is not silently broken),
+   * while fresh installs default to SecretStorage when it is available.
+   */
+  private async resolveApiKeyStorageMode(): Promise<void> {
+    if (this.settings.apiKeyStorage) return;
+
+    const hasExistingCredentials =
+      (this.settings.apikey?.length ?? 0) > 0 ||
+      (this.settings.username?.length ?? 0) > 0;
+
+    if (hasExistingCredentials) {
+      this.settings.apiKeyStorage = "local";
+    } else if (this.isSecretStorageAvailable()) {
+      this.settings.apiKeyStorage = "secret";
+    } else {
+      this.settings.apiKeyStorage = "local";
+    }
+
+    try {
+      await this.saveSettings();
+    } catch (e) {
+      console.error(e);
+    }
   }
 }

@@ -6,6 +6,16 @@ import { getRuleCategories } from "./helpers";
 
 export const logs: string[] = [];
 
+/**
+ * Resolved LanguageTool credentials. These may come from either the plugin
+ * settings (data.json) or Obsidian's SecretStorage, depending on the user's
+ * configured storage mode; the API layer is agnostic to the source.
+ */
+export interface LanguageToolApiCredentials {
+  username?: string;
+  apikey?: string;
+}
+
 let lastStatus:
   | "ok"
   | "request-failed"
@@ -56,7 +66,8 @@ function isValidInlineCode(text: string): boolean {
 
 export async function getDetectionResult(
   text: string,
-  getSettings: () => LanguageToolPluginSettings
+  getSettings: () => LanguageToolPluginSettings,
+  credentials: LanguageToolApiCredentials
 ): Promise<LanguageToolApi> {
   const parsedText = Remark.build(text, {
     ...Remark.defaults,
@@ -128,13 +139,13 @@ export async function getDetectionResult(
   }
 
   if (
-    settings.apikey &&
-    settings.username &&
-    settings.apikey.length > 1 &&
-    settings.username.length > 1
+    credentials.apikey &&
+    credentials.username &&
+    credentials.apikey.length > 1 &&
+    credentials.username.length > 1
   ) {
-    params.username = settings.username;
-    params.apiKey = settings.apikey;
+    params.username = credentials.username;
+    params.apiKey = credentials.apikey;
   }
 
   if (
@@ -179,7 +190,7 @@ export async function getDetectionResult(
 
   if (!res.ok) {
     const status = "request-not-ok";
-    await pushLogs(res, settings);
+    await pushLogs(res, settings, credentials);
     if (lastStatus !== status || !settings.shouldAutoCheck) {
       new Notice(
         `Request to LanguageTool failed\n${res.statusText}Check Plugin Settings for Logs`,
@@ -215,7 +226,8 @@ export async function getDetectionResult(
 
 export async function pushLogs(
   res: Response,
-  settings: LanguageToolPluginSettings
+  settings: LanguageToolPluginSettings,
+  credentials: LanguageToolApiCredentials
 ): Promise<void> {
   let debugString = `${new Date().toLocaleString()}:
   url used for request: ${res.url}
@@ -227,10 +239,10 @@ export async function pushLogs(
     apikey: "REDACTED"
   })}
   `;
-  if (settings.username || settings.apikey) {
+  if (credentials.username || credentials.apikey) {
     debugString = debugString
-      .replaceAll(settings.username ?? "username", "<<username>>")
-      .replaceAll(settings.apikey ?? "apiKey", "<<apikey>>");
+      .replaceAll(credentials.username ?? "username", "<<username>>")
+      .replaceAll(credentials.apikey ?? "apiKey", "<<apikey>>");
   }
 
   logs.push(debugString);
