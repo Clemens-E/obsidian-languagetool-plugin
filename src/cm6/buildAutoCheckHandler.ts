@@ -1,5 +1,5 @@
 import { ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { editorViewField, MarkdownView } from "obsidian";
+import { editorInfoField, MarkdownView } from "obsidian";
 import LanguageToolPlugin from "src";
 
 export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
@@ -27,7 +27,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
           maxRange = Math.max(maxRange, toB);
         });
 
-        clearTimeout(debounceTimer);
+        window.clearTimeout(debounceTimer);
 
         debounceTimer = window.setTimeout(() => {
           const docLength = view.state.doc.length;
@@ -40,8 +40,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
           const startLine = view.lineBlockAt(from);
           const endLine = view.lineBlockAt(to);
 
-          // @ts-ignore
-          const markdownView = view.state.field(editorViewField);
+          const markdownView = view.state.field(editorInfoField);
 
           plugin
             .runDetection(
@@ -56,7 +55,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
         }, plugin.settings.autoCheckDelay);
       },
       destroy() {
-        clearTimeout(debounceTimer);
+        window.clearTimeout(debounceTimer);
       }
     };
   });

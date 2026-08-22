@@ -16,9 +16,17 @@ export async function initWindows(): Promise<void> {
   settingsHandle = mainHandle;
 }
 
+// Match class names as whole tokens: substring matching would also hit the
+// ".setting-items" container that wraps every row on Obsidian 1.13+
+function hasClassToken(token: string): string {
+  return `contains(concat(" ", normalize-space(@class), " "), " ${token} ")`;
+}
+
 export function settingItem(name: string) {
   return browser.$(
-    `//div[contains(@class,"setting-item") and .//div[contains(@class,"setting-item-name") and normalize-space()="${name}"]]`
+    `//div[${hasClassToken("setting-item")} and .//div[${hasClassToken(
+      "setting-item-name"
+    )} and normalize-space()="${name}"]]`
   );
 }
 

@@ -13,7 +13,8 @@ import {
   hashString,
   getVisibleReplacements,
   normalizeServerUrl,
-  buildNfcOffsetMap
+  buildNfcOffsetMap,
+  editorToCodeMirror
 } from "./helpers";
 import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
@@ -27,6 +28,29 @@ import {
 // Default SecretStorage secret name used when migrating an existing plaintext
 // key. Secret names must be lowercase alphanumeric with optional dashes.
 const DEFAULT_APIKEY_SECRET_NAME = "languagetool-api-key";
+
+// The explicit return type is load-bearing: it keeps the value assigned
+// inside the between() callback from being narrowed back to null at the
+// return statement.
+function findUnderlineRange(
+  editorView: EditorView,
+  searchFrom: number,
+  searchTo: number,
+  pick: "first" | "last"
+): { from: number; to: number } | null {
+  let match: { from: number; to: number } | null = null;
+  editorView.state
+    .field(underlineField)
+    .between(searchFrom, searchTo, (from, to) => {
+      if (
+        !match ||
+        (pick === "first" ? match.from > from : match.from < from)
+      ) {
+        match = { from, to };
+      }
+    });
+  return match;
+}
 
 export default class LanguageToolPlugin extends Plugin {
   public settings: LanguageToolPluginSettings;
@@ -131,7 +155,7 @@ export default class LanguageToolPlugin extends Plugin {
       name: "Check Text",
       editorCallback: (editor, view) => {
         this.runDetection(
-          (editor as any).cm as EditorView,
+          editorToCodeMirror(editor),
           view as MarkdownView
         ).catch(e => {
           console.error(e);
@@ -152,8 +176,7 @@ export default class LanguageToolPlugin extends Plugin {
       id: "ltclear",
       name: "Clear Suggestions",
       editorCallback: editor => {
-        const cm = (editor as any).cm as EditorView;
-        cm.dispatch({
+        editorToCodeMirror(editor).dispatch({
           effects: [clearUnderlines.of(null)]
         });
       }
@@ -162,27 +185,22 @@ export default class LanguageToolPlugin extends Plugin {
       id: "ltjump-to-next-suggestion",
       name: "Jump to next Suggestion",
       editorCheckCallback: (checking, editor) => {
-        // @ts-expect-error, not typed
-        const editorView = editor.cm as EditorView;
+        const editorView = editorToCodeMirror(editor);
         // Use "to" to search after the current selection end (fixes #130)
         const cursorOffset = editor.posToOffset(editor.getCursor("to"));
-        let firstMatch: { from: number; to: number } | null = null;
-        editorView.state
-          .field(underlineField)
-          .between(cursorOffset + 1, Infinity, (from, to) => {
-            if (!firstMatch || firstMatch.from > from) {
-              firstMatch = { from, to };
-            }
-          });
+        const firstMatch = findUnderlineRange(
+          editorView,
+          cursorOffset + 1,
+          Infinity,
+          "first"
+        );
         if (checking) {
           return Boolean(firstMatch);
         }
         if (!firstMatch) {
           return;
         }
-        // ts cant handle that the variable gets assigned in a callback
         editorView.dispatch({
-          // @ts-expect-error 2339
           selection: { anchor: firstMatch.from, head: firstMatch.to },
           // Scroll to make the suggestion visible (fixes #130)
           scrollIntoView: true
@@ -193,26 +211,21 @@ export default class LanguageToolPlugin extends Plugin {
       id: "ltjump-to-previous-suggestion",
       name: "Jump to previous Suggestion",
       editorCheckCallback: (checking, editor) => {
-        // @ts-expect-error, not typed
-        const editorView = editor.cm as EditorView;
+        const editorView = editorToCodeMirror(editor);
         const cursorOffset = editor.posToOffset(editor.getCursor("from"));
-        let lastMatch: { from: number; to: number } | null = null;
-        editorView.state
-          .field(underlineField)
-          .between(0, cursorOffset - 1, (from, to) => {
-            if (!lastMatch || lastMatch.from < from) {
-              lastMatch = { from, to };
-            }
-          });
+        const lastMatch = findUnderlineRange(
+          editorView,
+          0,
+          cursorOffset - 1,
+          "last"
+        );
         if (checking) {
           return Boolean(lastMatch);
         }
         if (!lastMatch) {
           return;
         }
-        // ts cant handle that the variable gets assigned in a callback
         editorView.dispatch({
-          // @ts-expect-error 2339
           selection: { anchor: lastMatch.from, head: lastMatch.to },
           // Scroll to make the suggestion visible
           scrollIntoView: true
@@ -230,8 +243,7 @@ export default class LanguageToolPlugin extends Plugin {
       id: `ltaccept-suggestion-${n}`,
       name: `Accept suggestion #${n} when the cursor is within a Language-Tool-Hint`,
       editorCheckCallback(checking, editor) {
-        // @ts-expect-error, not typed
-        const editorView = editor.cm as EditorView;
+        const editorView = editorToCodeMirror(editor);
         const cursorOffset = editor.posToOffset(editor.getCursor());
 
         const relevantMatches: {
@@ -249,9 +261,10 @@ export default class LanguageToolPlugin extends Plugin {
 
         // The same filtered list the tooltip renders as buttons, so slot n
         // matches button n.
-        const match = relevantMatches[0]?.value?.spec?.match as
-          | MatchesEntity
+        const spec = relevantMatches[0]?.value.spec as
+          | { match?: MatchesEntity }
           | undefined;
+        const match = spec?.match;
         const replacements = match ? getVisibleReplacements(match) : [];
 
         // Check that there is exactly one match that has a replacement in the slot that is called.
@@ -323,11 +336,7 @@ export default class LanguageToolPlugin extends Plugin {
             return;
           }
           try {
-            await this.runDetection(
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-              (view.editor as any).cm,
-              view
-            );
+            await this.runDetection(editorToCodeMirror(view.editor), view);
           } catch (e) {
             console.error(e);
           }
@@ -351,8 +360,7 @@ export default class LanguageToolPlugin extends Plugin {
         item.onClick(() => {
           const view = this.app.workspace.getActiveViewOfType(MarkdownView);
           if (!view) return;
-          const cm = (view.editor as any).cm as EditorView;
-          cm.dispatch({
+          editorToCodeMirror(view.editor).dispatch({
             effects: [clearUnderlines.of(null)]
           });
         });
@@ -437,7 +445,7 @@ export default class LanguageToolPlugin extends Plugin {
         this.hashLru.set(hash, res);
       } catch (e) {
         this.setStatusBarReady();
-        return Promise.reject(e);
+        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
       }
 
       // Avoid updating the underlines if the document has changed.
@@ -449,7 +457,7 @@ export default class LanguageToolPlugin extends Plugin {
       }
     }
 
-    const effects: StateEffect<any>[] = [];
+    const effects: StateEffect<unknown>[] = [];
 
     if (isRange) {
       effects.push(
@@ -491,7 +499,11 @@ export default class LanguageToolPlugin extends Plugin {
   }
 
   public async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign(
+      {},
+      DEFAULT_SETTINGS,
+      (await this.loadData()) as Partial<LanguageToolPluginSettings> | null
+    );
   }
 
   public async saveSettings() {
@@ -540,6 +552,9 @@ export default class LanguageToolPlugin extends Plugin {
    * plaintext copy from data.json.
    */
   public async enableSecretStorage(): Promise<void> {
+    if (!this.isSecretStorageAvailable()) {
+      return;
+    }
     if (this.settings.apikey) {
       const name = this.settings.apikeySecretName ?? DEFAULT_APIKEY_SECRET_NAME;
       this.app.secretStorage.setSecret(name, this.settings.apikey);

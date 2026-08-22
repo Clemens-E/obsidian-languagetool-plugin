@@ -39,7 +39,7 @@ describe("Settings tab", function() {
     await openPluginSettings();
     const endpoint = settingItem("Endpoint");
     const urlInput = endpoint.$('input[type="text"]');
-    const dropdown = endpoint.$("select");
+    const dropdown = endpoint.$("select:not(.is-measuring)");
 
     await expect(urlInput).not.toBeEnabled();
 
@@ -59,7 +59,7 @@ describe("Settings tab", function() {
   it("strips API path suffixes from a custom endpoint URL (#143)", async function() {
     await openPluginSettings();
     const endpoint = settingItem("Endpoint");
-    await endpoint.$("select").selectByAttribute("value", "custom");
+    await endpoint.$("select:not(.is-measuring)").selectByAttribute("value", "custom");
     const urlInput = endpoint.$('input[type="text"]');
 
     // The plugin appends /v2/check itself, so a URL copied with the API
@@ -106,7 +106,7 @@ describe("Settings tab", function() {
 
   it("clamps the autocheck delay to the endpoint's minimum", async function() {
     await openPluginSettings();
-    const dropdown = settingItem("Endpoint").$("select");
+    const dropdown = settingItem("Endpoint").$("select:not(.is-measuring)");
     const slider = settingItem("AutoCheck Delay (ms)").$('input[type="range"]');
 
     await dropdown.selectByAttribute("value", "custom");
@@ -162,13 +162,13 @@ describe("Settings tab", function() {
     });
     await openPluginSettings();
 
-    const staticDropdown = settingItem("Static Language").$("select");
+    const staticDropdown = settingItem("Static Language").$("select:not(.is-measuring)");
     await expect(staticDropdown.$('option[value="auto"]')).toExist();
     expect(await staticDropdown.getValue()).toBe("auto");
 
     // Once the language list arrives from the server, the stored mother
     // tongue must be shown as the selected value
-    const motherDropdown = settingItem("Mother Tongue").$("select");
+    const motherDropdown = settingItem("Mother Tongue").$("select:not(.is-measuring)");
     await motherDropdown.$('option[value="de-DE"]').waitForExist();
     expect(await motherDropdown.getValue()).toBe("de-DE");
 

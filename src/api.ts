@@ -1,5 +1,5 @@
 import * as Remark from "annotatedtext-remark";
-import { Notice } from "obsidian";
+import { Notice, requestUrl, RequestUrlResponse } from "obsidian";
 import { LanguageToolApi } from "./LanguageToolTypings";
 import { LanguageToolPluginSettings } from "./SettingsTab";
 import { getRuleCategories } from "./helpers";
@@ -166,9 +166,13 @@ export async function getDetectionResult(
     params.motherTongue = settings.motherTongue;
   }
 
-  let res: Response;
+  const checkUrl = `${settings.serverUrl}/v2/check`;
+  let res: RequestUrlResponse;
   try {
-    res = await fetch(`${settings.serverUrl}/v2/check`, {
+    // requestUrl instead of fetch: it bypasses CORS restrictions, which
+    // matters for self-hosted LanguageTool servers
+    res = await requestUrl({
+      url: checkUrl,
       method: "POST",
       body: Object.keys(params)
         .map(key => {
@@ -180,13 +184,12 @@ export async function getDetectionResult(
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json"
-      }
+      },
+      throw: false
     });
   } catch (e) {
     const status = "request-failed";
-    pushLogEntry(
-      `request to ${settings.serverUrl}/v2/check failed: ${String(e)}`
-    );
+    pushLogEntry(`request to ${checkUrl} failed: ${String(e)}`);
     if (lastStatus !== status || !settings.shouldAutoCheck) {
       new Notice(
         `Request to LanguageTool server failed. Please check your connection and LanguageTool server URL`,
@@ -194,37 +197,34 @@ export async function getDetectionResult(
       );
       lastStatus = status;
     }
-    return Promise.reject(e);
+    return Promise.reject(e instanceof Error ? e : new Error(String(e)));
   }
 
-  if (!res.ok) {
+  if (res.status < 200 || res.status >= 300) {
     const status = "request-not-ok";
-    await pushLogs(res, settings, credentials);
+    pushLogs(checkUrl, res, settings, credentials);
     if (lastStatus !== status || !settings.shouldAutoCheck) {
-      const reason = res.statusText
-        ? `${res.status} ${res.statusText}`
-        : `${res.status}`;
       new Notice(
-        `Request to LanguageTool failed: ${reason}\nCheck the plugin settings for logs`,
+        `Request to LanguageTool failed: ${res.status}\nCheck the plugin settings for logs`,
         3000
       );
       lastStatus = status;
     }
     return Promise.reject(
-      new Error(`unexpected status ${res.status}, see network tab`)
+      new Error(`unexpected status ${res.status}, see plugin logs`)
     );
   }
 
   let body: LanguageToolApi;
   try {
-    body = await res.json();
+    body = res.json as LanguageToolApi;
   } catch (e) {
     const status = "json-parse-error";
     if (lastStatus !== status || !settings.shouldAutoCheck) {
       new Notice(`Error processing response from LanguageTool server`, 3000);
       lastStatus = status;
     }
-    return Promise.reject(e);
+    return Promise.reject(e instanceof Error ? e : new Error(String(e)));
   }
 
   // Only notify when recovering from a failed state
@@ -236,14 +236,15 @@ export async function getDetectionResult(
   return body;
 }
 
-export async function pushLogs(
-  res: Response,
+export function pushLogs(
+  url: string,
+  res: RequestUrlResponse,
   settings: LanguageToolPluginSettings,
   credentials: LanguageToolApiCredentials
-): Promise<void> {
-  let debugString = `url used for request: ${res.url}
+): void {
+  let debugString = `url used for request: ${url}
   Status: ${res.status}
-  Body: ${(await res.text()).slice(0, 200)}
+  Body: ${res.text.slice(0, 200)}
   Settings: ${JSON.stringify({
     ...settings,
     username: "REDACTED",

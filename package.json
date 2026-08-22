@@ -42,12 +42,10 @@
     "@wdio/globals": "^9.31.1",
     "@wdio/local-runner": "^9.31.2",
     "@wdio/mocha-framework": "^9.31.2",
-    "builtin-modules": "3.3.0",
     "esbuild": "0.25.5",
     "eslint": "^7.1.0",
     "eslint-config-marine": "8.1.0",
     "eslint-config-prettier": "^6.10.0",
-    "eslint-plugin-import": "^2.20.1",
     "eslint-plugin-obsidianmd": "0.1.9",
     "eslint-plugin-prettier": "^3.1.2",
     "globals": "14.0.0",
@@ -74,7 +72,10 @@
   },
   "eslintConfig": {
     "extends": "marine/prettier/node",
-    "ignorePatterns": ["*.js", "test/"],
+    "ignorePatterns": [
+      "*.js",
+      "test/"
+    ],
     "rules": {
       "@typescript-eslint/naming-convention": "off",
       "@typescript-eslint/no-unnecessary-condition": "off",

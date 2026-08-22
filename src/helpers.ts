@@ -1,5 +1,33 @@
+import { Editor, Vault } from "obsidian";
+import { EditorView } from "@codemirror/view";
 import { LanguageToolPluginSettings } from "./SettingsTab";
 import { MatchesEntity } from "./LanguageToolTypings";
+
+// Obsidian's Editor wraps a CodeMirror 6 view. The instance is not part of
+// the public API, but it is the only way to dispatch effects and read
+// decoration state.
+export function editorToCodeMirror(editor: Editor): EditorView {
+  return (editor as Editor & { cm: EditorView }).cm;
+}
+
+// Obsidian's spellcheck dictionary lives in the vault config, which has no
+// public accessor
+type VaultWithConfig = Vault & {
+  getConfig(key: string): unknown;
+  setConfig(key: string, value: unknown): void;
+};
+
+export function getSpellcheckDictionary(vault: Vault): string[] {
+  const words = (vault as VaultWithConfig).getConfig("spellcheckDictionary");
+  return Array.isArray(words) ? (words as string[]) : [];
+}
+
+export function addToSpellcheckDictionary(vault: Vault, word: string): void {
+  (vault as VaultWithConfig).setConfig("spellcheckDictionary", [
+    ...getSpellcheckDictionary(vault),
+    word
+  ]);
+}
 
 export const ignoreListRegEx = /frontmatter|code|math|templater|blockid|hashtag|internal/;
 

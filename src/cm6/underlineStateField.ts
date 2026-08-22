@@ -1,8 +1,16 @@
+import { App } from "obsidian";
 import { EditorView, Decoration, DecorationSet } from "@codemirror/view";
 import { StateField, StateEffect } from "@codemirror/state";
 import { syntaxTree, tokenClassNodeProp } from "@codemirror/language";
-import { Tree } from "@lezer/common";
-import { getIssueTypeClassName, ignoreListRegEx } from "../helpers";
+
+// The syntax tree type from @lezer/common, derived so the package (a
+// transitive dependency of @codemirror/language) is not imported directly
+type Tree = ReturnType<typeof syntaxTree>;
+import {
+  getIssueTypeClassName,
+  getSpellcheckDictionary,
+  ignoreListRegEx
+} from "../helpers";
 import { MatchesEntity } from "../LanguageToolTypings";
 
 export interface UnderlineEffect {
@@ -147,11 +155,12 @@ export const underlineField = StateField.define<DecorationSet>({
     const isRuleAllowed = (match: MatchesEntity, from: number, to: number) => {
       // Don't show spelling errors for entries in the user dictionary
       if (match.rule.category.id === "TYPOS") {
-        const spellcheckDictionary: string[] = ((window as any).app
-          .vault as any).getConfig("spellcheckDictionary");
+        // This state field is a module-level singleton without access to the
+        // plugin instance, so the app comes from Obsidian's global
+        const { app } = (window as unknown) as { app: App };
         const str = tr.state.sliceDoc(from, to);
 
-        if (spellcheckDictionary?.includes(str)) {
+        if (getSpellcheckDictionary(app.vault).includes(str)) {
           return false;
         }
       }

@@ -202,3 +202,28 @@
     transform: rotate(360deg);
   }
 }
+
+.lt-settings-endpoint-control {
+  display: inline-grid;
+}
+
+.lt-settings-error-text {
+  color: var(--text-error);
+}
+
+.lt-premium-warning {
+  display: grid;
+}
+
+.lt-premium-warning-buttons {
+  justify-self: center;
+}
+
+.lt-premium-warning-ack {
+  justify-self: flex-start;
+  color: red;
+}
+
+.lt-premium-warning-switch {
+  justify-self: flex-end;
+}

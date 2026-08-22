@@ -1,6 +1,11 @@
 import { EditorView, Tooltip, showTooltip } from "@codemirror/view";
 import { StateField, EditorState } from "@codemirror/state";
-import { getIssueTypeClassName, getVisibleReplacements } from "../helpers";
+import {
+  getIssueTypeClassName,
+  getVisibleReplacements,
+  addToSpellcheckDictionary
+} from "../helpers";
+import { MatchesEntity } from "../LanguageToolTypings";
 import { setIcon } from "obsidian";
 import LanguageToolPlugin from "src";
 import {
@@ -111,14 +116,10 @@ function contructTooltip(
             setIcon(button.createSpan(), "plus-with-circle");
             button.createSpan({ text: "Add to personal dictionary" });
             button.onclick = () => {
-              const spellcheckDictionary: string[] =
-                (plugin.app.vault as any).getConfig("spellcheckDictionary") ||
-                [];
-
-              (plugin.app.vault as any).setConfig("spellcheckDictionary", [
-                ...spellcheckDictionary,
+              addToSpellcheckDictionary(
+                plugin.app.vault,
                 view.state.sliceDoc(underline.from, underline.to)
-              ]);
+              );
 
               view.dispatch({
                 effects: [clearUnderlineEffect]
@@ -154,23 +155,25 @@ function getTooltip(
   const selection = state.selection.main;
   const isSelectingText = selection.from !== selection.to;
 
-  let primaryUnderline: UnderlineEffect | null = null;
+  const underlinesAtCursor: UnderlineEffect[] = [];
 
   underlines.between(
     state.selection.main.from,
     state.selection.main.to,
     (from, to, value) => {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      primaryUnderline = {
+      underlinesAtCursor.push({
         from,
         to,
-        match: value.spec.match
-      } as UnderlineEffect;
+        match: (value.spec as { match: MatchesEntity }).match
+      });
     }
   );
 
+  const primaryUnderline =
+    underlinesAtCursor[underlinesAtCursor.length - 1] ?? null;
+
   if (primaryUnderline !== null) {
-    const { from, to } = primaryUnderline as UnderlineEffect;
+    const { from, to } = primaryUnderline;
 
     // Don't show tooltip when user is actively selecting text that doesn't match the underline (fixes #120)
     if (isSelectingText) {
@@ -198,11 +201,7 @@ function getTooltip(
         arrow: false,
         create: view => {
           return {
-            dom: contructTooltip(
-              plugin,
-              view,
-              primaryUnderline as UnderlineEffect
-            )
+            dom: contructTooltip(plugin, view, primaryUnderline)
           };
         }
       }
