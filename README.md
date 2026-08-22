@@ -1,4 +1,4 @@
-# Obsidian LanguageTool Plugin
+# LanguageTool Integration
 
 This is a plugin for [Obsidian.md](https://obsidian.md) that integrates [LanguageTool](https://languagetool.org/) to provide advanced Grammar and Spell Checking.
 

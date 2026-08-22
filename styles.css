@@ -150,7 +150,7 @@
 
 .lt-status-bar-check-icon {
   display: block;
-  text-decoration: underline;
+  text-decoration-line: underline;
   text-decoration-style: dotted;
 }
 
