@@ -228,3 +228,7 @@
 .lt-premium-warning-switch {
   justify-self: flex-end;
 }
+
+.lt-dict-undo-btn {
+  margin-left: var(--size-4-2);
+}

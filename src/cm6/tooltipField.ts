@@ -3,13 +3,15 @@ import { StateField, EditorState } from "@codemirror/state";
 import {
   getIssueTypeClassName,
   getVisibleReplacements,
-  addToSpellcheckDictionary
+  addToSpellcheckDictionary,
+  removeFromSpellcheckDictionary
 } from "../helpers";
 import { MatchesEntity } from "../LanguageToolTypings";
-import { setIcon } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import LanguageToolPlugin from "src";
 import {
   UnderlineEffect,
+  addUnderline,
   clearUnderlinesInRange,
   underlineField,
   ignoreUnderline
@@ -34,6 +36,14 @@ function contructTooltip(
   return createDiv(
     { cls: [mainClass, getIssueTypeClassName(category)] },
     root => {
+      // Keep the editor focused while the popover is clicked: a mousedown
+      // that blurs the editor makes live preview re-render the surrounding
+      // callout as a widget, which shoves the popover aside before the
+      // click completes (#65)
+      root.addEventListener("mousedown", event => {
+        event.preventDefault();
+      });
+
       if (title) {
         root.createSpan({ cls: "lt-title" }, span => {
           span.createSpan({ text: title });
@@ -116,14 +126,43 @@ function contructTooltip(
             setIcon(button.createSpan(), "plus-with-circle");
             button.createSpan({ text: "Add to personal dictionary" });
             button.onclick = () => {
-              addToSpellcheckDictionary(
-                plugin.app.vault,
-                view.state.sliceDoc(underline.from, underline.to)
-              );
+              const word = view.state.sliceDoc(underline.from, underline.to);
+              addToSpellcheckDictionary(plugin.app.vault, word);
 
               view.dispatch({
                 effects: [clearUnderlineEffect]
               });
+
+              // The button sits right next to the suggestions and is easy to
+              // hit by accident, so the confirmation offers an undo (#138)
+              const notice = new Notice(
+                createFragment(fragment => {
+                  fragment.appendText(
+                    `Added "${word}" to the personal dictionary `
+                  );
+                  fragment.createEl(
+                    "button",
+                    { text: "Undo", cls: "lt-dict-undo-btn" },
+                    undoButton => {
+                      undoButton.onclick = () => {
+                        removeFromSpellcheckDictionary(plugin.app.vault, word);
+                        // Restore the underline, unless edits made in the
+                        // meantime invalidated its position
+                        if (
+                          view.state.sliceDoc(underline.from, underline.to) ===
+                          word
+                        ) {
+                          view.dispatch({
+                            effects: [addUnderline.of(underline)]
+                          });
+                        }
+                        notice.hide();
+                      };
+                    }
+                  );
+                }),
+                10000
+              );
             };
           } else {
             setIcon(button.createSpan(), "cross");

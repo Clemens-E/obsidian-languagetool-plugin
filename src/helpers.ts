@@ -33,6 +33,16 @@ export function addToSpellcheckDictionary(vault: Vault, word: string): void {
   ]);
 }
 
+export function removeFromSpellcheckDictionary(
+  vault: Vault,
+  word: string
+): void {
+  (vault as VaultWithConfig).setConfig(
+    "spellcheckDictionary",
+    getSpellcheckDictionary(vault).filter(entry => entry !== word)
+  );
+}
+
 export const ignoreListRegEx = /frontmatter|code|math|templater|blockid|hashtag|internal/;
 
 export function hashString(value: string) {
