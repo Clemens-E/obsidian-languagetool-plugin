@@ -25,7 +25,7 @@ Copy `main.js`, `styles.css`, and `manifest.json` from the [latest release](http
 
 ### Checking text
 
-Run **Check Text** from the command palette (or bind it to a hotkey under Settings, Hotkeys; filter for "LanguageTool" to find all of the plugin's commands). With no selection, the whole document is checked; with a selection, only the selected text is checked.
+Run **Check Text** from the command palette, bind it to a hotkey under Settings, Hotkeys (filter for "LanguageTool" to find all of the plugin's commands), or use the optional [ribbon icon](#the-ribbon-icon). With no selection, the whole document is checked; with a selection, only the selected text is checked.
 
 Potential issues are underlined. Click an underline to open a popover with the message, up to three suggested replacements, and an ignore button. For spelling errors the ignore button is **Add to personal dictionary**, which stores the word in Obsidian's own spellcheck dictionary, so both the plugin and Obsidian's built-in spellcheck accept it from then on.
 
@@ -46,6 +46,10 @@ lt-autocheck: false
 ```
 
 `false` keeps a note off automatic checking even when the setting is on, `true` checks a note automatically even when the setting is off. Manual checks are unaffected in both cases. Run **Toggle automatic checking for current document** (or use the status bar menu) to set the key without editing the frontmatter by hand; toggling back to the global behavior removes the key again.
+
+### The ribbon icon
+
+Turn on **Ribbon Icon** in the settings to get a spell-check icon in the ribbon (the left sidebar on desktop, the drawer on mobile) that checks the current note. It is off by default. On mobile it is the only tap target for a manual check besides the command palette, since the status bar does not exist there.
 
 ### The status bar button
 
@@ -89,6 +93,7 @@ tags:
 - **Store API key securely (this device only)**: keeps the API key in Obsidian's encrypted SecretStorage instead of in plaintext in the plugin settings. Requires Obsidian 1.11.4 or newer. See [API key storage](#api-key-storage-synced-plaintext-vs-secure-storage) for the trade-offs.
 - **Autocheck Text**: check automatically as you type.
 - **AutoCheck Delay (ms)**: how long to wait after the last keystroke before checking. The minimum depends on the endpoint, because each endpoint allows a different number of requests per minute: 3000 ms on standard, 750 ms on premium, 50 ms on custom.
+- **Ribbon Icon**: shows an icon in the ribbon that checks the current document. Off by default. You can also hide the icon later by right-clicking the ribbon, the same way as for any other plugin.
 - **Glass Background**: renders the suggestion popover with a translucent background instead of the theme's secondary background color.
 - **Static Language**: forces one language for all checks. The default, **Auto Detect**, is usually the better choice: LanguageTool detects the language per paragraph, so you can mix languages within one document. Setting a static language clears any configured language varieties.
 - **Mother Tongue**: your native language. LanguageTool uses it to detect false friends, words that look right to you but mean something else in the language you are writing.

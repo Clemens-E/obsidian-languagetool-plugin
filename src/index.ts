@@ -92,6 +92,7 @@ export default class LanguageToolPlugin extends Plugin {
   });
 
   private isloading = false;
+  private ribbonIcon: HTMLElement | null = null;
 
   public async onload() {
     // Settings
@@ -169,6 +170,8 @@ export default class LanguageToolPlugin extends Plugin {
         this.handleStatusBarClick
       );
     });
+
+    this.updateRibbonIcon();
 
     this.registerEditorExtension(buildUnderlineExtension(this));
 
@@ -397,6 +400,43 @@ export default class LanguageToolPlugin extends Plugin {
   }
 
   /**
+   * Add or remove the ribbon icon to match the setting (#114). The icon is
+   * opt-in: the status bar and the command palette already cover manual
+   * checks on desktop, and on mobile the ribbon is the only tap target.
+   */
+  public updateRibbonIcon(): void {
+    if (this.settings.showRibbonIcon) {
+      if (!this.ribbonIcon) {
+        this.ribbonIcon = this.addRibbonIcon(
+          "spell-check",
+          "Check text with LanguageTool",
+          () => {
+            this.checkActiveDocument().catch(e => {
+              console.error(e);
+            });
+          }
+        );
+      }
+      return;
+    }
+    this.ribbonIcon?.remove();
+    this.ribbonIcon = null;
+  }
+
+  /**
+   * Check the note in the active pane. Shared by the ribbon icon and the
+   * status bar menu, neither of which runs in an editor context.
+   */
+  private async checkActiveDocument(): Promise<void> {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view || view.getMode() !== "source") {
+      new Notice("Open a note in editing mode to check it", 3000);
+      return;
+    }
+    await this.runDetection(editorToCodeMirror(view.editor), view);
+  }
+
+  /**
    * Flip automatic checking for one note (#64). The choice is written to the
    * note's frontmatter so it travels with the file across renames and sync,
    * and the key is dropped again once it agrees with the global setting.
@@ -457,13 +497,8 @@ export default class LanguageToolPlugin extends Plugin {
         item.setTitle("Check current document");
         item.setIcon("checkbox-glyph");
         item.onClick(async () => {
-          const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-          if (!view || view.getMode() !== "source") {
-            new Notice("Open a note in editing mode to check it", 3000);
-            return;
-          }
           try {
-            await this.runDetection(editorToCodeMirror(view.editor), view);
+            await this.checkActiveDocument();
           } catch (e) {
             console.error(e);
           }

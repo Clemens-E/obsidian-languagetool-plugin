@@ -36,6 +36,7 @@ export interface LanguageToolPluginSettings {
 
   serverUrl: string;
   urlMode: "standard" | "premium" | "custom";
+  showRibbonIcon: boolean;
   glassBg: boolean;
   apikey?: string;
   username?: string;
@@ -72,6 +73,7 @@ export const DEFAULT_SETTINGS: LanguageToolPluginSettings = {
   serverUrl: "https://api.languagetool.org",
   urlMode: "standard",
 
+  showRibbonIcon: false,
   glassBg: false,
   shouldAutoCheck: false,
   autoCheckDelay: MinStandardAutoCheckDelay,
@@ -495,6 +497,22 @@ export class LanguageToolSettingsTab extends PluginSettingTab {
                 });
 
               component.setDynamicTooltip();
+            });
+          }
+        },
+        {
+          name: "Ribbon Icon",
+          desc:
+            "Show an icon in the ribbon that checks the current document. You can also hide it later by right-clicking the ribbon",
+          render: setting => {
+            setting.addToggle(component => {
+              component
+                .setValue(this.plugin.settings.showRibbonIcon)
+                .onChange(async value => {
+                  this.plugin.settings.showRibbonIcon = value;
+                  this.plugin.updateRibbonIcon();
+                  await this.plugin.saveSettings();
+                });
             });
           }
         },
