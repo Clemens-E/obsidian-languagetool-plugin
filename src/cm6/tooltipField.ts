@@ -1,5 +1,10 @@
-import { EditorView, Tooltip, showTooltip } from "@codemirror/view";
-import { StateField, EditorState } from "@codemirror/state";
+import { EditorView, Tooltip, keymap, showTooltip } from "@codemirror/view";
+import {
+  StateField,
+  StateEffect,
+  EditorState,
+  Prec
+} from "@codemirror/state";
 import { getIssueTypeClassName, getVisibleReplacements } from "../helpers";
 import { MatchesEntity } from "../LanguageToolTypings";
 import { setIcon } from "obsidian";
@@ -138,10 +143,25 @@ function contructTooltip(
   );
 }
 
+interface DismissedRange {
+  from: number;
+  to: number;
+}
+
+interface TooltipState {
+  tooltips: readonly Tooltip[];
+  // The match whose popover Escape closed. Kept until the cursor leaves it,
+  // so moving back onto the underline opens the popover again (#100)
+  dismissed: DismissedRange | null;
+}
+
+export const dismissTooltip = StateEffect.define();
+
 function getTooltip(
   tooltips: readonly Tooltip[],
   plugin: LanguageToolPlugin,
-  state: EditorState
+  state: EditorState,
+  dismissed: DismissedRange | null
 ): readonly Tooltip[] {
   const underlines = state.field(underlineField);
 
@@ -172,6 +192,10 @@ function getTooltip(
 
   if (primaryUnderline !== null) {
     const { from, to } = primaryUnderline;
+
+    if (dismissed && dismissed.from === from && dismissed.to === to) {
+      return [];
+    }
 
     // Don't show tooltip when user is actively selecting text that doesn't match the underline (fixes #120)
     if (isSelectingText) {
@@ -209,17 +233,67 @@ function getTooltip(
   return [];
 }
 
-export function buildTooltipField(plugin: LanguageToolPlugin) {
-  return StateField.define<readonly Tooltip[]>({
-    create: state => getTooltip([], plugin, state),
-    update: (tooltips, tr) => {
+export function buildTooltipExtension(plugin: LanguageToolPlugin) {
+  const tooltipField = StateField.define<TooltipState>({
+    create: state => ({
+      tooltips: getTooltip([], plugin, state, null),
+      dismissed: null
+    }),
+    update: (value, tr) => {
       // Close tooltip when document changes to prevent stale positions
-      // from being used when applying suggestions (fixes #92)
+      // from being used when applying suggestions (fixes #92). An edit also
+      // retires the dismissal, since the match it belonged to is gone.
       if (tr.docChanged) {
-        return [];
+        return { tooltips: [], dismissed: null };
       }
-      return getTooltip(tooltips, plugin, tr.state);
+
+      let dismissed = value.dismissed;
+
+      for (const e of tr.effects) {
+        if (e.is(dismissTooltip)) {
+          const shown = value.tooltips[0];
+          if (shown) {
+            dismissed = { from: shown.pos, to: shown.end ?? shown.pos };
+          }
+        }
+      }
+
+      // Once the cursor leaves the dismissed match, its popover is available
+      // again
+      if (dismissed) {
+        const selection = tr.state.selection.main;
+        if (selection.to < dismissed.from || selection.from > dismissed.to) {
+          dismissed = null;
+        }
+      }
+
+      return {
+        tooltips: getTooltip(value.tooltips, plugin, tr.state, dismissed),
+        dismissed
+      };
     },
-    provide: f => showTooltip.computeN([f], state => state.field(f))
+    provide: f =>
+      showTooltip.computeN([f], state => state.field(f).tooltips)
   });
+
+  return [
+    tooltipField,
+    // Escape closes the popover but keeps the underline, so the match can be
+    // reviewed again later (#100). Other Escape handlers, vim mode included,
+    // still see the key whenever no popover is open.
+    Prec.highest(
+      keymap.of([
+        {
+          key: "Escape",
+          run: view => {
+            if (!view.state.field(tooltipField).tooltips.length) {
+              return false;
+            }
+            view.dispatch({ effects: [dismissTooltip.of(null)] });
+            return true;
+          }
+        }
+      ])
+    )
+  ];
 }

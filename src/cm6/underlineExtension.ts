@@ -1,7 +1,7 @@
 import { tooltips } from "@codemirror/view";
 import LanguageToolPlugin from "src";
 import { buildAutoCheckHandler } from "./buildAutoCheckHandler";
-import { buildTooltipField } from "./tooltipField";
+import { buildTooltipExtension } from "./tooltipField";
 import { ignoredUnderlineField, underlineField } from "./underlineStateField";
 
 export function buildUnderlineExtension(plugin: LanguageToolPlugin) {
@@ -22,7 +22,7 @@ export function buildUnderlineExtension(plugin: LanguageToolPlugin) {
     // ignoredUnderlineField must come before underlineField
     ignoredUnderlineField,
     underlineField,
-    buildTooltipField(plugin),
+    buildTooltipExtension(plugin),
     buildAutoCheckHandler(plugin)
   ];
 }

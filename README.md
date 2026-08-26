@@ -29,6 +29,8 @@ Run **Check Text** from the command palette (or bind it to a hotkey under Settin
 
 Potential issues are underlined. Click an underline to open a popover with the message, up to three suggested replacements, and an ignore button. For spelling errors the ignore button is **Add to personal dictionary**, which stores the word in Obsidian's own spellcheck dictionary, so both the plugin and Obsidian's built-in spellcheck accept it from then on.
 
+Press `Escape` to close the popover without changing anything; the underline stays, so you can come back to it by clicking the word again.
+
 Underlines disappear on their own when you edit the text they cover. Text inside code blocks, math, frontmatter, and similar regions is never underlined.
 
 ### Automatic checking

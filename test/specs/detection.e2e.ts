@@ -159,6 +159,33 @@ describe("Detection and suggestions", function() {
     expect(selection).toBe("sentense");
   });
 
+  it("closes the popover with Escape and keeps the underline (#100)", async function() {
+    await obsidianPage.openFile("Suggestion.md");
+    const before = await getEditorText();
+    await checkText();
+
+    const popover = browser.$(`${ACTIVE} .lt-predictions-container`);
+    await browser.$(`${ACTIVE} .lt-underline`).click();
+    await expect(popover).toExist();
+
+    await browser.keys("Escape");
+    await expect(popover).not.toExist();
+
+    // Escape only closes the popover: the match stays underlined and the
+    // text is untouched
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).toExist();
+    expect(await getEditorText()).toBe(before);
+
+    // Moving off the match and back onto it opens the popover again
+    await browser.executeObsidian(({ app, obsidian }) => {
+      const view = app.workspace.getActiveViewOfType(obsidian.MarkdownView);
+      view!.editor.setCursor({ line: 0, ch: 0 });
+    });
+    await expect(popover).not.toExist();
+    await browser.$(`${ACTIVE} .lt-underline`).click();
+    await expect(popover).toExist();
+  });
+
   it("checks only the selected text", async function() {
     await obsidianPage.openFile("Selection.md");
     await browser.executeObsidian(({ app, obsidian }) => {
