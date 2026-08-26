@@ -443,6 +443,30 @@ describe("Detection and suggestions", function() {
     await expect(browser.$(`${ACTIVE} .lt-underline`)).toExist();
   });
 
+  it("adds the word at the cursor to the dictionary via command (#126)", async function() {
+    await obsidianPage.openFile("Suggestion.md");
+    await checkText();
+
+    await setCursorInWord("sentense");
+    await browser.executeObsidianCommand(`${PLUGIN_ID}:ltadd-to-dictionary`);
+
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
+    const inDictionary = await browser.executeObsidian(({ app }) =>
+      (
+        ((app as any).vault.getConfig("spellcheckDictionary") as string[]) ??
+        []
+      ).includes("sentense")
+    );
+    expect(inDictionary).toBe(true);
+
+    // The command shares the popover button's undo, which also keeps the
+    // dictionary clean for the tests that follow
+    const undoButton = browser.$(".notice").$("button=Undo");
+    await expect(undoButton).toExist();
+    await undoButton.click();
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).toExist();
+  });
+
   // Keep this test last: the added word suppresses every later "sentense"
   // underline in this Obsidian instance
   it("adds a typo to the personal dictionary", async function() {

@@ -27,11 +27,13 @@ import {
 import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
 import {
+  UnderlineEffect,
   addUnderline,
   clearUnderlines,
   clearUnderlinesInRange,
   underlineField
 } from "./cm6/underlineStateField";
+import { addWordToDictionaryWithUndo } from "./cm6/dictionaryAction";
 
 // Default SecretStorage secret name used when migrating an existing plaintext
 // key. Secret names must be lowercase alphanumeric with optional dashes.
@@ -58,6 +60,24 @@ function findUnderlineRange(
       }
     });
   return match;
+}
+
+// The underline the cursor sits in, or null when the position is ambiguous.
+// Commands act only on a single unambiguous match, like the accept commands.
+function findUnderlineAtCursor(
+  editorView: EditorView,
+  cursorOffset: number
+): UnderlineEffect | null {
+  const matches: UnderlineEffect[] = [];
+  editorView.state
+    .field(underlineField)
+    .between(cursorOffset, cursorOffset, (from, to, value) => {
+      const spec = value.spec as { match?: MatchesEntity };
+      if (spec.match) {
+        matches.push({ from, to, match: spec.match });
+      }
+    });
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export default class LanguageToolPlugin extends Plugin {
@@ -238,6 +258,29 @@ export default class LanguageToolPlugin extends Plugin {
           // Scroll to make the suggestion visible
           scrollIntoView: true
         });
+      }
+    });
+
+    this.addCommand({
+      id: "ltadd-to-dictionary",
+      name: "Add word at cursor to personal dictionary",
+      editorCheckCallback: (checking, editor) => {
+        const editorView = editorToCodeMirror(editor);
+        const underline = findUnderlineAtCursor(
+          editorView,
+          editor.posToOffset(editor.getCursor())
+        );
+        // Only spelling matches offer the dictionary, same as the popover
+        const isTypo = underline?.match.rule.category.id === "TYPOS";
+
+        if (checking) {
+          return isTypo;
+        }
+        if (!underline || !isTypo) {
+          return;
+        }
+
+        addWordToDictionaryWithUndo(this, editorView, underline);
       }
     });
 

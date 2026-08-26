@@ -27,7 +27,8 @@ describe("LanguageTool plugin", function() {
       "ltclear",
       "ltjump-to-next-suggestion",
       "ltjump-to-previous-suggestion",
-      "ltaccept-suggestion-1"
+      "ltaccept-suggestion-1",
+      "ltadd-to-dictionary"
     ]) {
       expect(commandIds).toContain(`${PLUGIN_ID}:${id}`);
     }

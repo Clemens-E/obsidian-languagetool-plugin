@@ -1,21 +1,16 @@
 import { EditorView, Tooltip, showTooltip } from "@codemirror/view";
 import { StateField, EditorState } from "@codemirror/state";
-import {
-  getIssueTypeClassName,
-  getVisibleReplacements,
-  addToSpellcheckDictionary,
-  removeFromSpellcheckDictionary
-} from "../helpers";
+import { getIssueTypeClassName, getVisibleReplacements } from "../helpers";
 import { MatchesEntity } from "../LanguageToolTypings";
-import { Notice, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import LanguageToolPlugin from "src";
 import {
   UnderlineEffect,
-  addUnderline,
   clearUnderlinesInRange,
   underlineField,
   ignoreUnderline
 } from "./underlineStateField";
+import { addWordToDictionaryWithUndo } from "./dictionaryAction";
 
 function contructTooltip(
   plugin: LanguageToolPlugin,
@@ -126,43 +121,7 @@ function contructTooltip(
             setIcon(button.createSpan(), "plus-with-circle");
             button.createSpan({ text: "Add to personal dictionary" });
             button.onclick = () => {
-              const word = view.state.sliceDoc(underline.from, underline.to);
-              addToSpellcheckDictionary(plugin.app.vault, word);
-
-              view.dispatch({
-                effects: [clearUnderlineEffect]
-              });
-
-              // The button sits right next to the suggestions and is easy to
-              // hit by accident, so the confirmation offers an undo (#138)
-              const notice = new Notice(
-                createFragment(fragment => {
-                  fragment.appendText(
-                    `Added "${word}" to the personal dictionary `
-                  );
-                  fragment.createEl(
-                    "button",
-                    { text: "Undo", cls: "lt-dict-undo-btn" },
-                    undoButton => {
-                      undoButton.onclick = () => {
-                        removeFromSpellcheckDictionary(plugin.app.vault, word);
-                        // Restore the underline, unless edits made in the
-                        // meantime invalidated its position
-                        if (
-                          view.state.sliceDoc(underline.from, underline.to) ===
-                          word
-                        ) {
-                          view.dispatch({
-                            effects: [addUnderline.of(underline)]
-                          });
-                        }
-                        notice.hide();
-                      };
-                    }
-                  );
-                }),
-                10000
-              );
+              addWordToDictionaryWithUndo(plugin, view, underline);
             };
           } else {
             setIcon(button.createSpan(), "cross");
