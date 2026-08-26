@@ -31,6 +31,7 @@ import {
   addUnderline,
   clearUnderlines,
   clearUnderlinesInRange,
+  ignoreUnderline,
   underlineField
 } from "./cm6/underlineStateField";
 import { addWordToDictionaryWithUndo } from "./cm6/dictionaryAction";
@@ -281,6 +282,34 @@ export default class LanguageToolPlugin extends Plugin {
         }
 
         addWordToDictionaryWithUndo(this, editorView, underline);
+      }
+    });
+
+    this.addCommand({
+      id: "ltignore-suggestion",
+      name: "Ignore suggestion at cursor",
+      editorCheckCallback: (checking, editor) => {
+        const editorView = editorToCodeMirror(editor);
+        const underline = findUnderlineAtCursor(
+          editorView,
+          editor.posToOffset(editor.getCursor())
+        );
+
+        if (checking) {
+          return Boolean(underline);
+        }
+        if (!underline) {
+          return;
+        }
+
+        // Unlike the popover button, this works for spelling matches too:
+        // ignoring a word for the session is a reasonable alternative to
+        // putting it in the dictionary permanently
+        editorView.dispatch({
+          effects: [
+            ignoreUnderline.of({ from: underline.from, to: underline.to })
+          ]
+        });
       }
     });
 

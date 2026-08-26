@@ -49,6 +49,7 @@ The `Aa` button in the status bar shows a sync icon while a check is running. Cl
 | Jump to next Suggestion | Selects the next underline after the cursor and scrolls to it |
 | Jump to previous Suggestion | Selects the previous underline before the cursor |
 | Accept suggestion #1 / #2 / #3 | With the cursor inside an underline, applies the first, second, or third suggested replacement directly, without opening the popover |
+| Ignore suggestion at cursor | With the cursor inside an underline, ignores that match for the rest of the session, like the popover's ignore button |
 | Add word at cursor to personal dictionary | With the cursor inside a spelling underline, adds the word to your personal dictionary (the same one Obsidian's own spellchecker uses). A notice offers an undo |
 
 ### Ignoring files

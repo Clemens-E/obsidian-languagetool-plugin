@@ -271,6 +271,23 @@ describe("Detection and suggestions", function() {
     await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
   });
 
+  it("ignores the suggestion at the cursor via command (#123)", async function() {
+    await obsidianPage.openFile("IgnoreGrammar.md");
+    await checkText();
+
+    // Clicking the underline puts the cursor inside the match, which is what
+    // the command works from
+    await browser.$(`${ACTIVE} .lt-underline`).click();
+    await browser.executeObsidianCommand(`${PLUGIN_ID}:ltignore-suggestion`);
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
+
+    // Like the popover button, the command ignores the range for the rest of
+    // the session, so a re-check does not bring the underline back
+    await browser.executeObsidianCommand(`${PLUGIN_ID}:ltcheck-text`);
+    await browser.pause(1500);
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
+  });
+
   it("underlines whole words containing umlauts (#131)", async function() {
     await obsidianPage.openFile("UmlautNFC.md");
     await checkText();
