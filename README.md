@@ -37,9 +37,19 @@ Underlines disappear on their own when you edit the text they cover. Text inside
 
 Enable **Autocheck Text** in the settings (or run **Toggle Automatic Checking**) to check as you type. The plugin waits until you stop typing for the configured **AutoCheck Delay** and then checks only the lines you changed.
 
+Single notes can deviate from that global setting with the `lt-autocheck` frontmatter key, which works in both directions and is remembered every time the note is opened, because it lives in the note itself:
+
+```yaml
+---
+lt-autocheck: false
+---
+```
+
+`false` keeps a note off automatic checking even when the setting is on, `true` checks a note automatically even when the setting is off. Manual checks are unaffected in both cases. Run **Toggle automatic checking for current document** (or use the status bar menu) to set the key without editing the frontmatter by hand; toggling back to the global behavior removes the key again.
+
 ### The status bar button
 
-The `Aa` button in the status bar shows a sync icon while a check is running. Clicking it opens a small menu: check the current document, enable or disable automatic checking, or clear all suggestions.
+The `Aa` button in the status bar shows a sync icon while a check is running. Clicking it opens a small menu: check the current document, enable or disable automatic checking globally or for the current document only, or clear all suggestions.
 
 ### Commands
 
@@ -48,6 +58,7 @@ The `Aa` button in the status bar shows a sync icon while a check is running. Cl
 | Check Text | Checks the document, or only the selection if there is one |
 | Clear Suggestions | Removes all underlines without changing the text |
 | Toggle Automatic Checking | Turns autocheck on or off |
+| Toggle automatic checking for current document | Pins autocheck on or off for the current note through its `lt-autocheck` frontmatter key |
 | Jump to next Suggestion | Selects the next underline after the cursor and scrolls to it |
 | Jump to previous Suggestion | Selects the previous underline before the cursor |
 | Accept suggestion #1 / #2 / #3 | With the cursor inside an underline, applies the first, second, or third suggested replacement directly, without opening the popover |

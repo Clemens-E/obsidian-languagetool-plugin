@@ -29,7 +29,8 @@ describe("LanguageTool plugin", function() {
       "ltjump-to-previous-suggestion",
       "ltaccept-suggestion-1",
       "ltadd-to-dictionary",
-      "ltignore-suggestion"
+      "ltignore-suggestion",
+      "ltautocheck-document"
     ]) {
       expect(commandIds).toContain(`${PLUGIN_ID}:${id}`);
     }

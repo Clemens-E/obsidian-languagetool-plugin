@@ -1,4 +1,4 @@
-import { Editor, Vault } from "obsidian";
+import { App, Editor, TFile, Vault } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import { LanguageToolPluginSettings } from "./SettingsTab";
 import { MatchesEntity } from "./LanguageToolTypings";
@@ -41,6 +41,29 @@ export function removeFromSpellcheckDictionary(
     "spellcheckDictionary",
     getSpellcheckDictionary(vault).filter(entry => entry !== word)
   );
+}
+
+// A note can pin automatic checking for itself with the lt-autocheck
+// frontmatter key, overriding the global setting in both directions (#64).
+// Returns undefined when the note does not pin a value.
+export function getDocumentAutoCheck(
+  app: App,
+  file: TFile | null
+): boolean | undefined {
+  if (!file) {
+    return undefined;
+  }
+  const value: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.[
+    "lt-autocheck"
+  ];
+  // YAML notes carry both real booleans and quoted strings
+  if (value === true || value === "true") {
+    return true;
+  }
+  if (value === false || value === "false") {
+    return false;
+  }
+  return undefined;
 }
 
 export const ignoreListRegEx = /frontmatter|code|math|templater|blockid|hashtag|internal/;

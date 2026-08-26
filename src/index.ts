@@ -5,7 +5,8 @@ import {
   Notice,
   Plugin,
   requireApiVersion,
-  setIcon
+  setIcon,
+  TFile
 } from "obsidian";
 import { Decoration, EditorView } from "@codemirror/view";
 import { StateEffect } from "@codemirror/state";
@@ -22,7 +23,8 @@ import {
   getVisibleReplacements,
   normalizeServerUrl,
   buildNfcOffsetMap,
-  editorToCodeMirror
+  editorToCodeMirror,
+  getDocumentAutoCheck
 } from "./helpers";
 import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
@@ -202,6 +204,23 @@ export default class LanguageToolPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "ltautocheck-document",
+      name: "Toggle automatic checking for current document",
+      editorCheckCallback: (checking, _editor, view) => {
+        const file = view.file;
+        if (checking) {
+          return Boolean(file);
+        }
+        if (!file) {
+          return;
+        }
+        this.toggleDocumentAutoCheck(file).catch(e => {
+          console.error(e);
+        });
+      }
+    });
+
+    this.addCommand({
       id: "ltclear",
       name: "Clear Suggestions",
       editorCallback: editor => {
@@ -377,6 +396,34 @@ export default class LanguageToolPlugin extends Plugin {
     };
   }
 
+  /**
+   * Flip automatic checking for one note (#64). The choice is written to the
+   * note's frontmatter so it travels with the file across renames and sync,
+   * and the key is dropped again once it agrees with the global setting.
+   */
+  private async toggleDocumentAutoCheck(file: TFile): Promise<void> {
+    const pinned = getDocumentAutoCheck(this.app, file);
+    const enabled = !(pinned ?? this.settings.shouldAutoCheck);
+
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (frontmatter: Record<string, unknown>) => {
+        if (enabled === this.settings.shouldAutoCheck) {
+          delete frontmatter["lt-autocheck"];
+        } else {
+          frontmatter["lt-autocheck"] = enabled;
+        }
+      }
+    );
+
+    new Notice(
+      enabled
+        ? "Automatic checking is on for this document"
+        : "Automatic checking is off for this document",
+      3000
+    );
+  }
+
   public setStatusBarReady() {
     this.isloading = false;
     this.statusBarText.empty();
@@ -432,6 +479,24 @@ export default class LanguageToolPlugin extends Plugin {
         item.onClick(async () => {
           this.settings.shouldAutoCheck = !this.settings.shouldAutoCheck;
           await this.saveSettings();
+        });
+      })
+      .addItem(item => {
+        const file = this.app.workspace.getActiveViewOfType(MarkdownView)?.file;
+        const enabled = file
+          ? getDocumentAutoCheck(this.app, file) ??
+            this.settings.shouldAutoCheck
+          : this.settings.shouldAutoCheck;
+        item.setTitle(
+          enabled
+            ? "Disable automatic checking for this document"
+            : "Enable automatic checking for this document"
+        );
+        item.setIcon("file-text");
+        item.setDisabled(!file);
+        item.onClick(async () => {
+          if (!file) return;
+          await this.toggleDocumentAutoCheck(file);
         });
       })
       .addItem(item => {

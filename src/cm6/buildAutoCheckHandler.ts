@@ -1,6 +1,17 @@
-import { ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { editorInfoField, MarkdownView } from "obsidian";
 import LanguageToolPlugin from "src";
+import { getDocumentAutoCheck } from "../helpers";
+
+function shouldAutoCheck(
+  plugin: LanguageToolPlugin,
+  view: EditorView
+): boolean {
+  const { file } = view.state.field(editorInfoField);
+  return (
+    getDocumentAutoCheck(plugin.app, file) ?? plugin.settings.shouldAutoCheck
+  );
+}
 
 export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
   // A ViewPlugin gets one instance per editor, so the debounce timer and the
@@ -12,7 +23,7 @@ export function buildAutoCheckHandler(plugin: LanguageToolPlugin) {
 
     return {
       update(update: ViewUpdate) {
-        if (!plugin.settings.shouldAutoCheck || !update.docChanged) {
+        if (!update.docChanged || !shouldAutoCheck(plugin, view)) {
           return;
         }
 
