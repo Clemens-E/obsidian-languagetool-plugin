@@ -326,6 +326,41 @@ describe("Detection and suggestions", function() {
     await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
   });
 
+  it("checks only the alias of an aliased wikilink (#69)", async function() {
+    await obsidianPage.openFile("AliasLink.md");
+
+    // The readability rule counts words per sentence; the long link target
+    // trips it only if it is sent as prose
+    await browser.executeObsidian(({ app }) => {
+      (app as any).plugins.plugins["obsidian-languagetool-plugin"].settings
+        .ruleOtherRules = "READABILITY_RULE_DIFFICULT";
+    });
+    try {
+      await browser.executeObsidianCommand(`${PLUGIN_ID}:ltcheck-text`);
+
+      // Absence check: give a real check enough time to have produced results
+      await browser.pause(3000);
+      await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
+    } finally {
+      await browser.executeObsidian(({ app }) => {
+        (app as any).plugins.plugins["obsidian-languagetool-plugin"].settings
+          .ruleOtherRules = undefined;
+      });
+    }
+  });
+
+  it("checks the alias of a wikilink as part of its sentence (#69)", async function() {
+    // "The dogs barks" is an agreement error LanguageTool can only see when
+    // the alias, and not the raw link, is what it reads
+    await obsidianPage.openFile("AliasAgreement.md");
+    await checkText();
+
+    const underlined = await browser
+      .$$(`${ACTIVE} .lt-underline`)
+      .map(el => el.getText());
+    expect(underlined).toEqual(["barks"]);
+  });
+
   it("underlines whole words containing umlauts (#131)", async function() {
     await obsidianPage.openFile("UmlautNFC.md");
     await checkText();

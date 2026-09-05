@@ -34,6 +34,72 @@ let lastStatus:
   | "json-parse-error" = "ok";
 const listRegex = /^\s*(-|\d+\.) $/m;
 
+// Obsidian wikilink: optional embed marker, target, optional alias after the
+// first pipe
+const wikilinkRegex = /(!?)\[\[([^[\]\n|]*)(\|([^[\]\n]*))?\]\]/g;
+
+// One entry of the annotated text sent to LanguageTool: either prose to
+// check, or markup with the text it stands for
+interface AnnotationItem {
+  text?: string;
+  markup?: string;
+  interpretAs?: string;
+  offset: { start: number; end: number };
+}
+
+// Only the alias of an aliased wikilink is visible in the rendered note, so
+// the link target is markup as far as the checker is concerned (#69). Plain
+// links keep their target as text, since that is what the reader sees, and
+// embeds are never prose. Markup keeps its raw length, so match offsets stay
+// aligned with the document.
+function annotateWikilinks(annotation: AnnotationItem[]): AnnotationItem[] {
+  const result: AnnotationItem[] = [];
+
+  for (const item of annotation) {
+    if (item.text === undefined) {
+      result.push(item);
+      continue;
+    }
+
+    let position = item.offset.start;
+    const push = (piece: Omit<AnnotationItem, "offset">, length: number) => {
+      if (length > 0) {
+        result.push({
+          ...piece,
+          offset: { start: position, end: position + length }
+        });
+        position += length;
+      }
+    };
+    const pushText = (text: string) => push({ text }, text.length);
+    const pushMarkup = (markup: string) =>
+      push({ markup, interpretAs: "" }, markup.length);
+
+    let cursor = 0;
+    for (const match of item.text.matchAll(wikilinkRegex)) {
+      const [whole, embed, target, aliasPart, alias] = match;
+      pushText(item.text.slice(cursor, match.index));
+
+      if (embed) {
+        pushMarkup(whole);
+      } else if (aliasPart !== undefined) {
+        pushMarkup(`[[${target}|`);
+        pushText(alias);
+        pushMarkup("]]");
+      } else {
+        pushMarkup("[[");
+        pushText(target);
+        pushMarkup("]]");
+      }
+
+      cursor = match.index + whole.length;
+    }
+    pushText(item.text.slice(cursor));
+  }
+
+  return result;
+}
+
 /**
  * ✅ CommonMark-compliant inline code validator.
  * Handles multiple backtick delimiters and all edge cases
@@ -99,11 +165,15 @@ export async function getDetectionResult(
     }
   });
 
+  const annotatedText = {
+    annotation: annotateWikilinks(parsedText.annotation)
+  };
+
   const settings = getSettings();
   const { enabledCategories, disabledCategories } = getRuleCategories(settings);
 
   const params: { [key: string]: string } = {
-    data: JSON.stringify(parsedText),
+    data: JSON.stringify(annotatedText),
     language: "auto",
     enabledOnly: "false",
     level: settings.pickyMode ? "picky" : "default"

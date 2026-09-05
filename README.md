@@ -31,7 +31,7 @@ Potential issues are underlined. Click an underline to open a popover with the m
 
 Press `Escape` to close the popover without changing anything; the underline stays, so you can come back to it by clicking the word again.
 
-Underlines disappear on their own when you edit the text they cover. Text inside code blocks, math, frontmatter, and similar regions is never underlined.
+Underlines disappear on their own when you edit the text they cover. Text inside code blocks, math, frontmatter, and similar regions is never underlined. In aliased links (`[[note|alias]]`) only the alias is checked, since that is the text you see; the link target is treated as markup. Embeds (`![[...]]`) are skipped entirely.
 
 ### Automatic checking
 
