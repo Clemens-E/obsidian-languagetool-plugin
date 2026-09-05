@@ -36,9 +36,31 @@ describe("Error handling", function() {
     await obsidianPage.openFile("Grammar.md");
     await browser.executeObsidianCommand(`${PLUGIN_ID}:ltcheck-text`);
 
-    await expect(
-      browser.$(".notice*=Request to LanguageTool server failed")
-    ).toExist();
+    // The refused connection surfaces as one of two failure notices,
+    // depending on how the network layer reports it; both start the same
+    // way and both record the request in the logs. Notices only live for a
+    // few seconds, so collect everything that shows up while waiting.
+    const seenNotices = new Set<string>();
+    try {
+      await browser.waitUntil(
+        async () => {
+          const texts = await browser.execute(() =>
+            Array.from(document.querySelectorAll(".notice")).map(
+              notice => notice.textContent ?? ""
+            )
+          );
+          texts.forEach(text => seenNotices.add(text));
+          return texts.some(text => text.includes("Request to LanguageTool"));
+        },
+        { timeout: 30000 }
+      );
+    } catch {
+      throw new Error(
+        `no request failure notice appeared; notices seen: ${JSON.stringify(
+          [...seenNotices]
+        )}`
+      );
+    }
 
     // The failure must be inspectable afterwards: the copy button copies
     // logs instead of reporting that there are none
