@@ -315,6 +315,17 @@ describe("Detection and suggestions", function() {
     await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
   });
 
+  it("treats each list item as its own sentence (#68)", async function() {
+    // Capitalized bullets without trailing punctuation: read as one running
+    // sentence, LanguageTool would flag the capital letters mid-sentence
+    await obsidianPage.openFile("ListItems.md");
+    await browser.executeObsidianCommand(`${PLUGIN_ID}:ltcheck-text`);
+
+    // Absence check: give a real check enough time to have produced results
+    await browser.pause(3000);
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
+  });
+
   it("underlines whole words containing umlauts (#131)", async function() {
     await obsidianPage.openFile("UmlautNFC.md");
     await checkText();
