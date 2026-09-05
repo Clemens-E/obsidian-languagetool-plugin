@@ -141,10 +141,20 @@ function isValidInlineCode(text: string): boolean {
   return true;
 }
 
+/**
+ * Per-request overrides of the global settings. A note can pin its language
+ * through its frontmatter (#52, #83); "auto" re-enables detection for a note
+ * even when the settings name a static language.
+ */
+export interface DetectionOverrides {
+  language?: string;
+}
+
 export async function getDetectionResult(
   text: string,
   getSettings: () => LanguageToolPluginSettings,
-  credentials: LanguageToolApiCredentials
+  credentials: LanguageToolApiCredentials,
+  overrides: DetectionOverrides = {}
 ): Promise<LanguageToolApi> {
   const parsedText = Remark.build(text, {
     ...Remark.defaults,
@@ -172,9 +182,17 @@ export async function getDetectionResult(
   const settings = getSettings();
   const { enabledCategories, disabledCategories } = getRuleCategories(settings);
 
+  // The note's own language wins over the static setting; anything other
+  // than "auto" is sent as-is
+  const staticLanguage =
+    settings.staticLanguage && settings.staticLanguage.length > 0
+      ? settings.staticLanguage
+      : "auto";
+  const language = overrides.language ?? staticLanguage;
+
   const params: { [key: string]: string } = {
     data: JSON.stringify(annotatedText),
-    language: "auto",
+    language,
     enabledOnly: "false",
     level: settings.pickyMode ? "picky" : "default"
   };
@@ -195,41 +213,27 @@ export async function getDetectionResult(
     params.disabledRules = settings.ruleOtherDisabledRules;
   }
 
-  if (settings.englishVeriety) {
-    params.preferredVariants = `${
-      params.preferredVariants ? `${params.preferredVariants},` : ""
-    }${settings.englishVeriety}`;
+  // LanguageTool only accepts preferred variants together with language
+  // detection, so they are dropped whenever a specific language is sent
+  const preferredVariants: string[] = [];
+  for (const variety of [
+    settings.englishVeriety,
+    settings.germanVeriety,
+    settings.portugueseVeriety,
+    settings.catalanVeriety
+  ]) {
+    if (variety) {
+      preferredVariants.push(variety);
+    }
   }
 
-  if (settings.germanVeriety) {
-    params.preferredVariants = `${
-      params.preferredVariants ? `${params.preferredVariants},` : ""
-    }${settings.germanVeriety}`;
-  }
-
-  if (settings.portugueseVeriety) {
-    params.preferredVariants = `${
-      params.preferredVariants ? `${params.preferredVariants},` : ""
-    }${settings.portugueseVeriety}`;
-  }
-
-  if (settings.catalanVeriety) {
-    params.preferredVariants = `${
-      params.preferredVariants ? `${params.preferredVariants},` : ""
-    }${settings.catalanVeriety}`;
+  if (language === "auto" && preferredVariants.length) {
+    params.preferredVariants = preferredVariants.join(",");
   }
 
   if (credentials.apikey && credentials.username) {
     params.username = credentials.username;
     params.apiKey = credentials.apikey;
-  }
-
-  if (
-    settings.staticLanguage &&
-    settings.staticLanguage.length > 0 &&
-    settings.staticLanguage !== "auto"
-  ) {
-    params.language = settings.staticLanguage;
   }
 
   if (settings.motherTongue && settings.motherTongue.length > 0) {

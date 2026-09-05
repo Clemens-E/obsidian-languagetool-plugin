@@ -69,6 +69,18 @@ The `Aa` button in the status bar shows a sync icon while a check is running. Cl
 | Ignore suggestion at cursor | With the cursor inside an underline, ignores that match for the rest of the session, like the popover's ignore button |
 | Add word at cursor to personal dictionary | With the cursor inside a spelling underline, adds the word to your personal dictionary (the same one Obsidian's own spellchecker uses). A notice offers an undo |
 
+### Pinning a note's language
+
+LanguageTool detects the language of the whole text, so a note that mixes languages (say, an English template filled with German prose) can end up checked in the wrong one. Pin the language for a single note with the `lt-language` frontmatter key, using a LanguageTool code such as `de-DE`, `en-US`, or just `de`:
+
+```yaml
+---
+lt-language: de-DE
+---
+```
+
+The keys `language` and `lang` are accepted as well, so notes that already carry them for other plugins (for example obsidian-dictionary) need no extra key. A pinned language wins over the **Static Language** setting; `lt-language: auto` re-enables detection for one note while a static language is set globally. Language varieties from the settings only apply to notes that are auto-detected, because LanguageTool does not combine them with a fixed language.
+
 ### Ignoring files
 
 Add the tag `lt-ignore` to a file's frontmatter to exclude it from all checks, including manual ones:

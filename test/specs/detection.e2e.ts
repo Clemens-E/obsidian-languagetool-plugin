@@ -361,6 +361,27 @@ describe("Detection and suggestions", function() {
     expect(underlined).toEqual(["barks"]);
   });
 
+  // A correct German sentence is full of "typos" once it is checked as
+  // English, which makes the pinned language observable
+  it("checks a note in the language pinned by lt-language (#52)", async function() {
+    await obsidianPage.openFile("LanguagePinned.md");
+    await checkText();
+  });
+
+  it("accepts the lang frontmatter key of other plugins (#52)", async function() {
+    await obsidianPage.openFile("LanguageLang.md");
+    await checkText();
+  });
+
+  it("detects the language of notes without a pinned one (#52)", async function() {
+    await obsidianPage.openFile("LanguageAuto.md");
+    await browser.executeObsidianCommand(`${PLUGIN_ID}:ltcheck-text`);
+
+    // Absence check: give a real check enough time to have produced results
+    await browser.pause(3000);
+    await expect(browser.$(`${ACTIVE} .lt-underline`)).not.toExist();
+  });
+
   it("underlines whole words containing umlauts (#131)", async function() {
     await obsidianPage.openFile("UmlautNFC.md");
     await checkText();

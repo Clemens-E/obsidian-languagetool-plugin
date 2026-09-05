@@ -24,7 +24,8 @@ import {
   normalizeServerUrl,
   buildNfcOffsetMap,
   editorToCodeMirror,
-  getDocumentAutoCheck
+  getDocumentAutoCheck,
+  getDocumentLanguage
 } from "./helpers";
 import { getDetectionResult, LanguageToolApiCredentials } from "./api";
 import { buildUnderlineExtension } from "./cm6/underlineExtension";
@@ -610,7 +611,11 @@ export default class LanguageToolPlugin extends Plugin {
     const toDocOffset = (pos: number) =>
       nfcOffsetMap ? nfcOffsetMap[pos] ?? pos : pos;
 
-    const hash = hashString(text);
+    // Identical text checks differently in another language, so the note's
+    // pinned language is part of the cache key. The global settings are not:
+    // saving them clears the cache.
+    const documentLanguage = getDocumentLanguage(this.app, view.file);
+    const hash = hashString(`${documentLanguage ?? ""}\n${text}`);
 
     let res: LanguageToolApi;
     if (this.hashLru.has(hash)) {
@@ -620,7 +625,8 @@ export default class LanguageToolPlugin extends Plugin {
         res = await getDetectionResult(
           text,
           () => this.settings,
-          this.getCredentials()
+          this.getCredentials(),
+          { language: documentLanguage }
         );
         this.hashLru.set(hash, res);
       } catch (e) {

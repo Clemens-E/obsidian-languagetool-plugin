@@ -66,6 +66,27 @@ export function getDocumentAutoCheck(
   return undefined;
 }
 
+// A note can pin the language LanguageTool checks it in (#52, #83). The
+// plugin's own key comes first; "language" and "lang" are accepted as well
+// because obsidian-dictionary and similar plugins already use them. Returns
+// undefined when the note does not pin a language.
+export function getDocumentLanguage(
+  app: App,
+  file: TFile | null
+): string | undefined {
+  if (!file) {
+    return undefined;
+  }
+  const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+  for (const key of ["lt-language", "language", "lang"]) {
+    const value: unknown = frontmatter?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
 export const ignoreListRegEx = /frontmatter|code|math|templater|blockid|hashtag|internal/;
 
 export function hashString(value: string) {
