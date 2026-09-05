@@ -20,6 +20,12 @@ jobs:
         image: erikvl87/languagetool:latest
         ports:
           - 8010:8010
+        env:
+          # The default heap runs out while the German models load, which
+          # kills the server and fails every check that follows. Two
+          # Obsidian instances query it at once, so give it room.
+          Java_Xms: 1g
+          Java_Xmx: 2g
     steps:
       - uses: actions/checkout@v4
 
@@ -67,8 +73,27 @@ jobs:
           echo "LanguageTool server did not become ready" >&2
           exit 1
 
+      # The first check in a language loads its models, which takes far
+      # longer than a test waits for an underline. Load the languages the
+      # fixtures use before the suite starts.
+      - name: Warm up LanguageTool
+        run: |
+          for lang in en-US de-DE auto; do
+            start=$(date +%s)
+            curl -fsS -o /dev/null "http://localhost:8010/v2/check" \
+              --data-urlencode "language=$lang" \
+              --data-urlencode "text=This is a sentense. Das ist ein schöönes Beispiel."
+            echo "$lang warmed up in $(( $(date +%s) - start ))s"
+          done
+
       - name: Run e2e tests
         run: yarn test:e2e
         env:
           WDIO_MAX_INSTANCES: "2"
           LANGUAGETOOL_URL: http://localhost:8010
+
+      # A dead LanguageTool server shows up as failing checks across every
+      # spec; its own log tells the two apart
+      - name: Show LanguageTool server logs
+        if: failure()
+        run: docker logs "${{ job.services.languagetool.id }}" 2>&1 | tail -n 100
